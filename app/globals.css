@@ -1,0 +1,151 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: #141218;
+  color: #e6e0e9;
+}
+
+body {
+  @apply antialiased overflow-x-hidden;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  vertical-align: middle;
+}
+
+.grid-bg {
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, rgba(148, 142, 156, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 142, 156, 0.05) 1px, transparent 1px);
+}
+
+.tech-grid-bg,
+.tech-grid,
+.technical-grid {
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, rgba(73, 69, 81, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(73, 69, 81, 0.12) 1px, transparent 1px);
+}
+
+.isometric-shadow {
+  box-shadow: 20px 20px 0 0 rgba(0, 0, 0, 0.3);
+}
+
+.iso-shadow {
+  box-shadow: 16px 16px 0 0 rgba(0, 0, 0, 0.4);
+}
+
+.iso-card {
+  box-shadow: -8px 8px 0 0 rgba(103, 80, 164, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.iso-card:hover {
+  transform: translate(4px, -4px);
+  box-shadow: -12px 12px 0 0 rgba(207, 188, 255, 0.4);
+}
+
+.isometric-card {
+  transform-style: preserve-3d;
+  box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.5);
+}
+
+.policy-iso {
+  transform: perspective(1000px) rotateX(10deg) rotateY(-10deg);
+  box-shadow: 20px 20px 0 0 rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+}
+
+.policy-iso:hover {
+  transform: perspective(1000px) rotateX(5deg) rotateY(-5deg) translateZ(10px);
+  box-shadow: 25px 25px 0 0 rgba(0, 0, 0, 0.6);
+}
+
+.tech-border {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glow-primary,
+.glow-active {
+  box-shadow: 0 0 20px -5px #cfbcff;
+}
+
+.barcode-progress {
+  background-image: repeating-linear-gradient(
+    to right,
+    #cfbcff,
+    #cfbcff 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+.pulse-live {
+  animation: pulse-live 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.pulse-dot {
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 10px 0 rgba(207, 188, 255, 0.5);
+  }
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 0 0 rgba(207, 188, 255, 0);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  80%,
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.step-enter {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iso-card,
+  .policy-iso,
+  .pulse-live,
+  .pulse-dot,
+  .step-enter {
+    animation: none;
+    transition: none;
+  }
+}

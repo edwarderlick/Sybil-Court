@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+dist
+*.log
+.env
+.env.local
+.env*.local
+.vercel
+contracts/__pycache__
