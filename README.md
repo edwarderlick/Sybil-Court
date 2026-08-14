@@ -12,7 +12,7 @@ Outcomes are **Eligible**, **Ineligible**, or **Contested**. The court does not 
 | Repo | [https://github.com/edwarderlick/Sybil-Court](https://github.com/edwarderlick/Sybil-Court) |
 | Network | GenLayer studionet (chain `61999`) |
 | Contract | [`0xFCA5d6960da9833f241c98f5677a0284534B7723`](https://sybil-court.vercel.app/cases/CASE-0001) |
-| Example docket | [CASE-0001](https://sybil-court.vercel.app/cases/CASE-0001) (Solana, Contested) · [CASE-0002](https://sybil-court.vercel.app/cases/CASE-0002) (Sui, Contested) |
+| Example docket | [CASE-0003 Eligible](https://sybil-court.vercel.app/cases/CASE-0003) · [CASE-0004 Ineligible](https://sybil-court.vercel.app/cases/CASE-0004) · [CASE-0001 Contested](https://sybil-court.vercel.app/cases/CASE-0001) |
 
 Studio is gasless. Connect an injected wallet, switch it to studionet if prompted, then Publish Policy → Submit Wallet → Run Judgment.
 
@@ -84,7 +84,7 @@ The written verdict is produced with `gl.eq_principle.prompt_non_comparative` (g
 | **Ineligible** | Fetched pages themselves clearly show farming, clusters, or other policy-defined sybil behavior |
 | **Contested** | Required proof is missing, sources failed or are thin, or the record is off-topic / contradictory |
 
-A biography, homepage, or explorer interstitial is not uniqueness proof. Live rounds on this contract stayed **Contested** for that reason — not because the court cannot return the other two labels.
+A biography, homepage, or explorer interstitial is not uniqueness proof by itself. This contract now has live examples of all three outcomes.
 
 ### Live rounds on this contract
 
@@ -92,13 +92,19 @@ Deploy: `0x90e2931ccb06f66355ed08e546674fcab1a9cc9d5652365f492521fca306310f`
 
 | Case | Policy | Wallet | Outcome | Why | Judge tx |
 |---|---|---|---|---|---|
-| CASE-0001 | Solana Airdrop Uniqueness | `5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9` | Contested | Wikipedia fetched (no wallet). OKLink Solana 404, Solscan 403, Solana.fm thin. | [`0xaa266ee6…4b476e`](https://sybil-court.vercel.app/cases/CASE-0001) |
-| CASE-0002 | Sui Airdrop Uniqueness | `0x307784044da0dc83b942999821fafa0740dc3584457d89f4aa0820b3e210c995` | Contested | Wikipedia fetched (no operator). OKLink Sui fetched a Sui account page with no txs. Suiscan thin, Suivision 403. | [`0x6dd5b2ff…457fea3`](https://sybil-court.vercel.app/cases/CASE-0002) |
-
-Neither round used Ethereum explorers.
+| [CASE-0003](https://sybil-court.vercel.app/cases/CASE-0003) | Public Figure Wallet Uniqueness | `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` | **Eligible** | CoinDesk names Vitalik Buterin and prints this exact address as “his address.” | [`0x1e669860…7ccd79`](https://sybil-court.vercel.app/cases/CASE-0003) |
+| [CASE-0004](https://sybil-court.vercel.app/cases/CASE-0004) | Hop Airdrop Cluster Funding | `0xfe7101d155eb11640e5a4bf342cd066dce51e9e3` | **Ineligible** | Hop issue #239 (Valid Report) lists this wallet as the parent hub that funded a 15-address child cluster. | [`0x32ad9b41…2cc407`](https://sybil-court.vercel.app/cases/CASE-0004) |
+| [CASE-0001](https://sybil-court.vercel.app/cases/CASE-0001) | Solana Airdrop Uniqueness | `5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9` | **Contested** | Wikipedia fetched (no wallet). Solana explorers 404 / 403 / thin. | [`0xaa266ee6…4b476e`](https://sybil-court.vercel.app/cases/CASE-0001) |
+| [CASE-0002](https://sybil-court.vercel.app/cases/CASE-0002) | Sui Airdrop Uniqueness | `0x307784044da0dc83b942999821fafa0740dc3584457d89f4aa0820b3e210c995` | **Contested** | Wikipedia fetched (no operator). OKLink Sui showed no txs. | [`0x6dd5b2ff…457fea3`](https://sybil-court.vercel.app/cases/CASE-0002) |
 
 | Step | Result | Transaction |
 |---|---|---|
+| `publish_policy` | POL-0003 Public figure uniqueness | `0x92c3c62e34969bda13f75661b8151bfb578cd5585525bc43b6325aa3cca66371` |
+| `submit_case` | CASE-0003 | `0x8922bcf6abe25c3ec475525f5316d57634de7bb184322d18a7bf9d141fec2fde` |
+| `judge_case` | Eligible | `0x1e669860579f80f40a90ac5ab5f1fdd899d646918a50774d4b084202d77ccd79` |
+| `publish_policy` | POL-0004 Hop cluster funding | `0xbe6310f633038603e5ba122ffd4129371be2efec78a36083a13e9c68aa2e9f5f` |
+| `submit_case` | CASE-0004 | `0xa5d27fbda176e4e138f0185f76b6b10ed81e4e1d265021d4f0592ea40571693b` |
+| `judge_case` | Ineligible | `0x32ad9b41800aea2ec3d3efc28e18fa2ea53320b42e5fc71a0aa2bf4d312cc407` |
 | `publish_policy` | POL-0001 Solana | `0x681d6fc0e30b10469e36c1938a5993f464c2d6dfd9195edba4761dc1b4001a23` |
 | `submit_case` | CASE-0001 | `0x5fb6121b3a13660005ddfe0ebcaf291433d646bb4df71d4c22f70a85076117e1` |
 | `judge_case` | Contested | `0xaa266ee6fe9f9af3872a8aaec2b97c48d6ab590083cc1fc01140d138ce4b476e` |
@@ -186,7 +192,7 @@ Put the printed address in `.env.local` and restart the app.
 
 - **No native chain RPC.** Studio has no usable `@gl.evm.contract_interface` for Ethereum, and no Solana or Sui RPC. Evidence is public HTML only.
 - **Explorers often fail.** Cloudflare walls, 403s, 404s, and SPA shells are common. They stay `FETCH_THIN` or `FETCH_FAILED`.
-- **Eligible / Ineligible are strict.** The live Solana and Sui rounds were Contested because no fetched source identified a unique operator.
+- **Eligible / Ineligible are strict.** A biography without the wallet stays Contested. Eligible on this contract required a fetched page that named the person *and* printed the exact address. Ineligible required a fetched page that named the wallet as a cluster parent.
 - **Judgment is slow.** Two consensus rounds re-fetch every URL. Studio is also rate-limited (writes can hit 30 req/min).
 - **Landing / marketing screens** still use the original Stitch visual language. The live contract path is Policy, Submit, Cases, Appeal, and the docket.
 - **Bonds** are stored as 18-decimal GEN. Studio is gasless, so a bond is a recorded amount, not an economic lock on Ethereum.
@@ -202,6 +208,7 @@ Put the printed address in `.env.local` and restart the app.
 | `app/api/recommend-policy/route.ts` | Gemini policy draft |
 | `components/providers/CourtProvider.tsx` | Writes, then refresh from chain |
 | `scripts/chain-round.mjs` | Solana / Sui smoke helper |
+| `scripts/proof-round.mjs` | Eligible / Ineligible proof helper |
 
 ## Tech stack
 
