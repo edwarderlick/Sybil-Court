@@ -126,7 +126,7 @@ function CaseCard({ item }: { item: CaseRecord }) {
               name={item.statusTone === "open" || item.statusTone === "pending" ? "help" : "shield"}
               className={`text-[14px] ${item.statusTone === "appeal" ? "text-tertiary" : ""}`}
             />
-            {item.reputation ?? (item.seed ? "Unverified" : "Session filing")}
+            {item.reputation ?? (item.seed ? "Unverified" : "On-chain filing")}
           </div>
         </div>
         <div className="col-span-2 mt-2">
@@ -183,7 +183,7 @@ function CaseCard({ item }: { item: CaseRecord }) {
           className="font-label-technical text-label-technical text-on-surface border border-outline-variant px-4 py-2 hover:bg-surface-container-high transition-colors flex items-center gap-2"
         >
           {item.statusTone === "open" || item.statusTone === "pending"
-            ? "Vote / Stake"
+            ? "Open Docket"
             : "Review Evidence"}{" "}
           <Icon name="arrow_outward" className="text-[14px]" />
         </Link>

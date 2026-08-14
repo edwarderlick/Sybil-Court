@@ -421,8 +421,8 @@ export default function SubmitWalletPage() {
                         </span>
                       </div>
                       <p className="text-sm text-on-surface-variant max-w-md">
-                        Bond will be slashed if appeal is deemed malicious or
-                        entirely unfounded by the operator consensus.
+                        Recorded on the case as a GEN bond. Studio is gasless, so
+                        this is a stored amount, not an Ethereum lock.
                       </p>
                     </div>
                   </div>

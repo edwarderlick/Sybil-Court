@@ -4,10 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCourt } from "@/components/providers/CourtProvider";
 import { AppShell } from "@/components/shell/AppShell";
-import { Countdown, CountdownBar } from "@/components/ui/Countdown";
 import { Icon } from "@/components/ui/Icon";
 import { LiveBadge } from "@/components/ui/LiveBadge";
-import { featuredCase } from "@/lib/content";
 import { routes } from "@/lib/routes";
 import { buildVerdictView } from "@/lib/verdictView";
 
@@ -58,15 +56,17 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
     );
   }
 
-  const windowSeconds = record.windowSeconds ?? featuredCase.windowSeconds;
   const verdict = record.verdict ?? [];
   const view = buildVerdictView(record);
-  const outcomeTone =
-    view?.outcome === "Eligible"
+  const statusTone =
+    view?.outcome === "Eligible" || record.outcome === "Eligible"
       ? "bg-tertiary/20 border-tertiary text-tertiary"
-      : view?.outcome === "Ineligible"
+      : view?.outcome === "Ineligible" || record.outcome === "Ineligible"
         ? "bg-error-container/20 border-error text-error"
-        : "bg-error-container/20 border-error text-error";
+        : record.statusTone === "pending"
+          ? "bg-surface-container-high border-outline-variant text-on-surface"
+          : "bg-error-container/20 border-error text-error";
+  const outcomeTone = statusTone;
 
   return (
     <AppShell sidebar sidebarActive="disputes" dock>
@@ -85,7 +85,7 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
                 {record.title}
               </h1>
             </div>
-            <div className="flex items-center gap-2 bg-error-container/20 border border-error text-error px-3 py-1">
+            <div className={`flex items-center gap-2 px-3 py-1 border ${statusTone}`}>
               <Icon name="radio_button_checked" className="animate-pulse text-[18px]" />
               <span className="font-label-technical text-label-technical uppercase">
                 {record.status}
@@ -121,10 +121,10 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
                   </div>
                   <div className="bg-surface-container-high border border-outline-variant/30 p-3">
                     <div className="font-label-technical text-label-technical text-outline uppercase mb-2">
-                      Reporting Validator
+                      Submitter
                     </div>
-                    <div className="font-label-technical text-label-technical text-tertiary truncate">
-                      {record.validator ?? "Awaiting assignment"}
+                    <div className="font-label-technical text-label-technical text-tertiary break-all">
+                      {record.submitter ?? "On-chain filing"}
                     </div>
                   </div>
                 </div>
@@ -136,29 +136,19 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
                   Value at Risk
                 </h2>
                 <div className="font-stat-value text-stat-value text-error break-all">
-                  {record.id === featuredCase.id
-                    ? featuredCase.valueAtRisk
-                    : record.stake}
+                  {record.stake}
                 </div>
                 <div className="font-label-technical text-label-technical text-outline mt-1 uppercase">
                   {record.stakeLabel}
                 </div>
               </div>
               <div className="mt-8">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-label-technical text-label-technical text-primary uppercase">
-                    Resolution Window
-                  </span>
-                  <Countdown
-                    initialSeconds={windowSeconds}
-                    className="font-label-technical text-label-technical text-on-surface"
-                  />
+                <div className="font-label-technical text-label-technical text-primary uppercase mb-2">
+                  Docket status
                 </div>
-                <CountdownBar
-                  initialSeconds={windowSeconds}
-                  segments={11}
-                  tone="primary"
-                />
+                <p className="font-label-technical text-label-technical text-on-surface">
+                  {record.meterLabel ?? record.status}
+                </p>
               </div>
             </div>
           </section>
@@ -167,11 +157,11 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
             <h2 className="font-headline-lg text-headline-lg text-on-surface mb-6 flex items-center gap-3">
               <Icon name="hub" className="text-primary" /> Evidence Board
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter auto-rows-[200px]">
-              <div className="col-span-1 md:col-span-2 bg-surface-container-low border border-outline-variant p-5 flex flex-col justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+              <div className="col-span-1 md:col-span-2 bg-surface-container-low border border-outline-variant p-5 min-h-[200px] flex flex-col">
                 <div className="flex justify-between items-start gap-3">
                   <div className="font-label-technical text-label-technical text-on-surface-variant uppercase">
-                    Temporal Funding Graph
+                    Submitted Evidence
                   </div>
                   <LiveBadge />
                 </div>
@@ -187,27 +177,25 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
                     ))}
                   </div>
                 ) : (
-                  <div className="h-24 w-full border-b border-l border-outline-variant/50 relative mt-4 flex items-end justify-between px-2 pb-1">
-                    <div className="w-8 bg-on-surface-variant/20 h-[20%]" />
-                    <div className="w-8 bg-on-surface-variant/20 h-[40%]" />
-                    <div className="w-8 bg-error/80 h-[90%] border border-error shadow-[0_0_10px_rgba(255,180,171,0.3)]" />
-                    <div className="w-8 bg-on-surface-variant/20 h-[30%]" />
-                    <div className="w-8 bg-on-surface-variant/20 h-[10%]" />
-                  </div>
+                  <p className="mt-6 font-body-md text-on-surface-variant">
+                    No user-supplied evidence links were stored on this docket.
+                    Judgment may still try chain explorers if the wallet matches
+                    a supported address format.
+                  </p>
                 )}
               </div>
-              <div className="col-span-1 bg-surface-container-low border border-outline-variant p-5 flex flex-col justify-between">
+              <div className="col-span-1 bg-surface-container-low border border-outline-variant p-5 min-h-[200px] flex flex-col justify-between">
                 <div className="font-label-technical text-label-technical text-on-surface-variant uppercase">
-                  Shared IPs
+                  Stored links
                 </div>
                 <div className="font-stat-value text-stat-value text-on-surface">
-                  {record.sharedIps ?? "—"}
+                  {record.evidence.length}
                 </div>
                 <a
                   className="font-label-technical text-label-technical text-primary hover:underline flex items-center gap-1"
                   href="#verdict"
                 >
-                  View Explorer <Icon name="open_in_new" className="text-[14px]" />
+                  Jump to verdict <Icon name="open_in_new" className="text-[14px]" />
                 </a>
               </div>
             </div>
@@ -361,7 +349,7 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
                   ? "Fetch public evidence and write the full verdict on-chain."
                   : record.status === "Active Appeal"
                     ? "Re-evaluate the appealed docket with the same live helpers."
-                    : `Requires ${record.appealStake ?? record.stake} Stake. Window closes soon.`}
+                    : `Appeal bond on this docket: ${record.appealStake ?? record.stake}.`}
               </p>
               {lastTxHash ? (
                 <p className="font-label-technical text-label-technical text-on-surface-variant break-all mt-2">

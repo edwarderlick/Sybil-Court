@@ -11,7 +11,7 @@ Outcomes are **Eligible**, **Ineligible**, or **Contested**. The court does not 
 | App | [https://sybil-court.vercel.app](https://sybil-court.vercel.app) |
 | Repo | [https://github.com/edwarderlick/Sybil-Court](https://github.com/edwarderlick/Sybil-Court) |
 | Network | GenLayer studionet (chain `61999`) |
-| Contract | [`0xFCA5d6960da9833f241c98f5677a0284534B7723`](https://sybil-court.vercel.app/cases/CASE-0001) |
+| Contract | [`0xFCA5d6960da9833f241c98f5677a0284534B7723`](https://sybil-court.vercel.app/cases/CASE-0003) |
 | Example docket | [CASE-0003 Eligible](https://sybil-court.vercel.app/cases/CASE-0003) · [CASE-0004 Ineligible](https://sybil-court.vercel.app/cases/CASE-0004) · [CASE-0001 Contested](https://sybil-court.vercel.app/cases/CASE-0001) |
 
 Studio is gasless. Connect an injected wallet, switch it to studionet if prompted, then Publish Policy → Submit Wallet → Run Judgment.
@@ -194,7 +194,7 @@ Put the printed address in `.env.local` and restart the app.
 - **Explorers often fail.** Cloudflare walls, 403s, 404s, and SPA shells are common. They stay `FETCH_THIN` or `FETCH_FAILED`.
 - **Eligible / Ineligible are strict.** A biography without the wallet stays Contested. Eligible on this contract required a fetched page that named the person *and* printed the exact address. Ineligible required a fetched page that named the wallet as a cluster parent.
 - **Judgment is slow.** Two consensus rounds re-fetch every URL. Studio is also rate-limited (writes can hit 30 req/min).
-- **Landing / marketing screens** still use the original Stitch visual language. The live contract path is Policy, Submit, Cases, Appeal, and the docket.
+- **Landing, passport, and leaderboard** still use the original Stitch visual language. The live contract path is Policy, Submit, Cases, Appeal, Activity, and the docket.
 - **Bonds** are stored as 18-decimal GEN. Studio is gasless, so a bond is a recorded amount, not an economic lock on Ethereum.
 
 ## Repo map

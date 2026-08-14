@@ -94,7 +94,8 @@ export default function PublishPolicyPage() {
                 Policy Intelligence
               </h1>
               <p className="font-body-md text-on-surface-variant max-w-2xl">
-                {policyDraft.project}
+                Request a Gemini draft, then accept or edit it. Only the stored
+                policy body is written on-chain.
               </p>
             </div>
             <div className="flex items-center gap-4 mt-8 md:mt-0">
@@ -222,24 +223,13 @@ export default function PublishPolicyPage() {
             </div>
             <div className="bg-surface-container border border-outline-variant p-6 mb-4">
               <h3 className="font-label-technical text-label-technical text-on-surface-variant uppercase mb-4 tracking-widest border-b border-outline-variant pb-2">
-                Confidence Matrix
+                What gets stored
               </h3>
-              <div className="space-y-4">
-                {policyDraft.confidence.map((row) => (
-                  <div key={row.label}>
-                    <div className="flex justify-between font-label-technical text-label-technical text-on-surface mb-1">
-                      <span>{row.label}</span>
-                      <span>{row.value}</span>
-                    </div>
-                    <div className="w-full h-2 bg-surface-container-highest flex">
-                      <div
-                        className={`h-full ${row.tone === "tertiary" ? "bg-tertiary" : "bg-primary"}`}
-                        style={{ width: row.width }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p className="font-body-md text-on-surface-variant leading-relaxed">
+                Gemini only drafts text. The court stores the full policy you
+                accept or edit. Judgment later fetches public pages and does not
+                invent activity.
+              </p>
             </div>
             {mode === "published" ? (
               <Link
