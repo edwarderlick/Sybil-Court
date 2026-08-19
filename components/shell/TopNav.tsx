@@ -95,16 +95,9 @@ export function TopNav({
           <Link
             href={routes.activity}
             onClick={() => setOpen(false)}
-            className="font-label-technical text-label-technical uppercase text-on-surface py-3 border-b border-outline-variant/40"
-          >
-            Live Activity
-          </Link>
-          <Link
-            href={routes.passport}
-            onClick={() => setOpen(false)}
             className="font-label-technical text-label-technical uppercase text-on-surface py-3"
           >
-            Passport
+            Live Activity
           </Link>
           <WalletChip className="sm:hidden mt-2 w-full justify-center" />
         </div>

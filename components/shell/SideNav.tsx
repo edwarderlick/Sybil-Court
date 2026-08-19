@@ -21,7 +21,7 @@ export function SideNav({ active = "cases" }: { active?: SideNavKey }) {
           href={routes.submit}
           className="mt-6 w-full border border-tertiary text-tertiary font-label-technical text-label-technical uppercase py-2 hover:bg-tertiary hover:text-on-tertiary transition-colors flex items-center justify-center gap-2"
         >
-          <Icon name="add" className="text-[16px]" /> New Appeal
+          <Icon name="add" className="text-[16px]" /> Submit Wallet
         </Link>
       </div>
       <nav className="flex-1 flex flex-col gap-1 px-2">

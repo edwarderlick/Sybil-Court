@@ -8,7 +8,7 @@ import { routes } from "@/lib/routes";
 const items = [
   { href: routes.cases, label: "Cases", icon: "gavel" },
   { href: routes.activity, label: "Feed", icon: "explore" },
-  { href: routes.leaderboard, label: "Ranks", icon: "leaderboard" },
+  { href: routes.submit, label: "Submit", icon: "add" },
   { href: routes.dashboard, label: "Mine", icon: "person" },
 ];
 

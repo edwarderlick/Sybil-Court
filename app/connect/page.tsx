@@ -89,7 +89,7 @@ export default function ConnectPage() {
               </div>
               <div className="text-left">
                 <div className="font-label-technical text-label-technical text-on-surface uppercase font-bold">
-                  Connect Passport
+                  Connect Wallet
                 </div>
                 <div className="font-body-md text-body-md text-on-surface-variant text-sm mt-1">
                   Recommended for Sybil Court Operators

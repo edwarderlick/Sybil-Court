@@ -24,7 +24,7 @@ export function WalletChip({
         href={routes.connect}
         className={`font-label-technical text-label-technical bg-primary text-on-primary px-4 md:px-6 py-2 md:py-3 uppercase tracking-wider hover:bg-primary-fixed transition-colors flex items-center gap-2 ${className}`}
       >
-        Connect Passport
+        Connect Wallet
         {!compact ? (
           <Icon name="account_balance_wallet" className="text-[16px]" />
         ) : null}
@@ -35,7 +35,7 @@ export function WalletChip({
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <Link
-        href={routes.passport}
+        href={routes.dashboard}
         className="font-label-technical text-label-technical bg-surface-container-high text-on-surface border border-outline-variant px-4 py-2 uppercase flex items-center gap-2 hover:bg-surface-container transition-colors"
       >
         <span className="w-2 h-2 rounded-full bg-primary pulse-live" />

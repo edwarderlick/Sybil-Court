@@ -18,7 +18,6 @@ export const topNav = [
   { href: routes.policy, label: "Publish Policy" },
   { href: routes.submit, label: "Submit Wallet" },
   { href: routes.cases, label: "Browse Cases" },
-  { href: routes.leaderboard, label: "Leaderboard" },
 ] as const;
 
 export type SideNavKey =
@@ -37,18 +36,6 @@ export const sideNav = [
     label: "Active Disputes",
     icon: "warning",
     key: "disputes" as const,
-  },
-  {
-    href: routes.leaderboard,
-    label: "Governance",
-    icon: "account_balance",
-    key: "governance" as const,
-  },
-  {
-    href: routes.passport,
-    label: "Project Filter",
-    icon: "filter_list",
-    key: "filter" as const,
   },
   {
     href: routes.activity,

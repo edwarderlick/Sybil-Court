@@ -18,9 +18,10 @@ export default function LandingPage() {
           </div>
           <div className="lg:col-span-5 flex flex-col justify-end pb-12">
             <p className="font-body-md text-on-surface-variant mb-8 max-w-md text-left text-lg">
-              Monitor operations, understand real-time sybil data, and receive
-              AI-powered verdicts through one intelligent workspace built for
-              critical operators.
+              Publish a policy, submit a wallet with public evidence, and lock a
+              payable GEN bond. Validators fetch those pages and store a full
+              written verdict. Eligible returns a credit and lists the wallet.
+              Ineligible slashes to the treasury. Contested opens a 7-day appeal.
             </p>
             <div className="flex justify-start gap-4">
               <Link
@@ -55,37 +56,13 @@ export default function LandingPage() {
           }}
         />
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-gutter relative z-10">
-          <div className="lg:col-span-5 flex items-center">
-            <h2 className="font-headline-xl text-headline-lg-mobile md:text-headline-xl font-bold leading-tight">
-              By bringing together fragmented sybil data across your ecosystem,
-              it enables operators to access critical verdicts faster.
+          <div className="lg:col-span-12">
+            <h2 className="font-headline-xl text-headline-lg-mobile md:text-headline-xl font-bold leading-tight max-w-4xl">
+              Policy, public evidence fetch, a full written verdict, then the
+              bond moves. Eligible credits and lists the wallet. Ineligible
+              slashes to the treasury. Contested opens a 7-day, 2× appeal.
+              No invented accuracy scores.
             </h2>
-          </div>
-          <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-3 gap-8 items-center mt-12 lg:mt-0">
-            <div className="border-l border-white/30 pl-6">
-              <div className="font-stat-value text-stat-value font-semibold mb-2">
-                98.2%
-              </div>
-              <div className="font-label-technical text-label-technical uppercase tracking-widest opacity-80">
-                Verdict Accuracy
-              </div>
-            </div>
-            <div className="border-l border-white/30 pl-6">
-              <div className="font-stat-value text-stat-value font-semibold mb-2">
-                50+
-              </div>
-              <div className="font-label-technical text-label-technical uppercase tracking-widest opacity-80">
-                Analysis Models
-              </div>
-            </div>
-            <div className="border-l border-white/30 pl-6">
-              <div className="font-stat-value text-stat-value font-semibold mb-2">
-                60%
-              </div>
-              <div className="font-label-technical text-label-technical uppercase tracking-widest opacity-80">
-                Resolution Speed
-              </div>
-            </div>
           </div>
         </div>
       </section>

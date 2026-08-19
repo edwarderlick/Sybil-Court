@@ -246,7 +246,7 @@ genlayer deploy --contract contracts/sybil_court.py
 - **Signature is not identity.** The contract stores the signed bytes. It does not recover the key.
 - **Credits ≠ native payout.** Refunds are on-contract credits. `withdraw()` may not pay out on Studio.
 - **Judgment is slow.** Two consensus rounds. Studio writes can hit 30 req/min.
-- **Landing, passport, and leaderboard** still use the original Stitch visual language. The live path is Policy, Submit, Cases, Appeal, Activity, and the docket.
+- **Landing and chrome** now describe the bonded court. `/leaderboard` and `/passport` redirect to `/cases`.
 
 ## Repo map
 

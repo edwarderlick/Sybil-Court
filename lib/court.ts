@@ -137,8 +137,8 @@ export const seedCases: CaseRecord[] = [
       ...featuredCase.verdict,
       featuredCase.signature,
     ].join("\n"),
-    stake: "15,000 USDC",
-    stakeLabel: "STAKE AT RISK",
+    stake: "0.01 GEN",
+    stakeLabel: "BOND ON RECORD",
     project: "Arbitrum Defi",
     projectImage:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAXPoMuvUBiWWC6hGJI1oU12gbS13_X2RWFHJpB1yOl9GnSXGTOvmCnBpESiJlIN6AyHAkObrGPz6vGnfnblA28muahHS6zRVIh0bThX0f5k7Nd29qJEnQJhPu75lT0BVQW8tloZXv-nvGL1qIPfd0AQjOHG8cUfuZUCy15Y3pkOJykojKZwce5hdy-cT0VWoR8zYgyyBYQeYz1C2tdWTjKf9Q7_Bsztjt6d3Y5ADsAzaNkGnjon12G",
@@ -166,8 +166,8 @@ export const seedCases: CaseRecord[] = [
     policyTitle: "Liquidity Provider Anonymity Bounds",
     policyText:
       "Strict threshold policy for overlapping LP positions across designated automated market makers.",
-    stake: "5,500 MATIC",
-    stakeLabel: "STAKE AT RISK",
+    stake: "0.01 GEN",
+    stakeLabel: "BOND LOCKED",
     project: "Polygon Social",
     projectImage:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuDoPV9MRjxinxJ616qX_GPPumWXllyt4Thc4a_NucOEUfmk7o-5WgdrzZCqiXMbm6WrHH_PxI7Ri4suJE_-jEL5rqTbneAculeBLckOC2VO1RDlNl0KegCS8BCeYGFYzE3bsM-dqLYlmybHNXg6jc9OUnYqQpiZbzMAIkZXk7kkLU9p2ST3d98V4y4pbrdd2xmaMrdAmnOsRu-Ebl92B1ZWGC7Bi3H0VgR5b4efrBlHqzy4JNVZqQaJ",
@@ -189,8 +189,8 @@ export const seedCases: CaseRecord[] = [
     policyTitle: "Standard Sybil Resistance Framework",
     policyText:
       "Base policy governing single-entity multi-wallet interactions within standard rollup environments.",
-    stake: "120,000 OP",
-    stakeLabel: "STAKE SLASHED",
+    stake: "0.01 GEN",
+    stakeLabel: "BOND SLASHED TO TREASURY",
     resolutionHash: "0xdef...a1b2",
     evidence: [],
     seed: true,

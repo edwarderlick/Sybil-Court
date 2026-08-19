@@ -152,10 +152,10 @@ export default function SubmitWalletPage() {
             </div>
             <div className="border-b border-outline-variant pb-4">
               <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1">
-                File Appeal
+                Submit Wallet
               </h2>
               <p className="font-label-technical text-label-technical text-on-surface-variant uppercase">
-                ID: TX-8924-B
+                Payable 0.01 GEN bond
               </p>
             </div>
             <div className="bg-surface-container tech-border p-3">
@@ -297,7 +297,7 @@ export default function SubmitWalletPage() {
                           onClick={() => setWallet(address)}
                           className="mt-2 font-label-technical text-label-technical text-primary uppercase"
                         >
-                          Use connected passport
+                          Use connected wallet
                         </button>
                       ) : null}
                     </div>

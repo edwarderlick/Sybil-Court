@@ -35,9 +35,10 @@ export default function HowJudgmentsWorkPage() {
             How Judgments <span className="text-primary">Work</span>
           </h1>
           <p className="font-body-md text-body-md text-on-surface-variant max-w-2xl mx-auto">
-            An industrial-grade resolution engine mapping off-chain realities to
-            on-chain enforcement. Follow the deterministic sequence of truth
-            verification.
+            Publish a policy, submit a wallet with public evidence and a payable
+            GEN bond, then run judgment. Validators fetch the pages and store a
+            full written verdict. Eligible credits and lists the wallet.
+            Ineligible slashes to the treasury. Contested opens a 7-day appeal.
           </p>
         </header>
         <section className="max-w-6xl mx-auto w-full relative">

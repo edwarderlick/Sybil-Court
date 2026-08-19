@@ -28,7 +28,7 @@ export default function DashboardPage() {
             </h1>
             <div className="font-label-technical text-label-technical text-on-surface-variant flex items-center gap-2">
               <Icon name="account_balance_wallet" className="text-[14px]" />
-              Wallet Passport:{" "}
+              Wallet:{" "}
               <span className="text-primary font-bold">{displayWallet}</span>
             </div>
           </div>
