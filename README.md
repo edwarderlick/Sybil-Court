@@ -11,9 +11,9 @@ Outcomes are **Eligible**, **Ineligible**, or **Contested**. The court does not 
 | App | [https://sybil-court.vercel.app](https://sybil-court.vercel.app) |
 | Repo | [https://github.com/edwarderlick/Sybil-Court](https://github.com/edwarderlick/Sybil-Court) |
 | Network | GenLayer studionet (chain `61999`) |
-| **Current contract** | [`0x114F72F1b65f60d8ed9244B573F0c7F3a980814B`](https://sybil-court.vercel.app/cases/CASE-0002) |
-| Current docket | [CASE-0001 unsigned](https://sybil-court.vercel.app/cases/CASE-0001) · [CASE-0002 signed Contested](https://sybil-court.vercel.app/cases/CASE-0002) |
-| Previous bonded contract | `0x573ae3ba443fc3b5bAA52b9B1030c4eA0c0cf69c` (Eligible / Ineligible / appeal proofs; not what the live app reads) |
+| **Current contract** | [`0x114F72F1b65f60d8ed9244B573F0c7F3a980814B`](https://sybil-court.vercel.app/cases/CASE-0006) |
+| Current docket | [CASE-0006 Eligible](https://sybil-court.vercel.app/cases/CASE-0006) · [CASE-0004 Ineligible](https://sybil-court.vercel.app/cases/CASE-0004) · [CASE-0002 signed Contested](https://sybil-court.vercel.app/cases/CASE-0002) |
+| Previous bonded contract | `0x573ae3ba443fc3b5bAA52b9B1030c4eA0c0cf69c` (earlier settlement + appeal; live app does not read it) |
 
 Connect an injected wallet, switch to studionet if prompted, then **Publish → Submit → Judge**. Submit and appeal send real payable GEN. Studio fees are gasless.
 
@@ -121,29 +121,37 @@ A biography, homepage, or explorer interstitial is not uniqueness proof. Eligibl
 
 ## Proofs
 
-The live app reads **only** the current contract. Prefer those two dockets first.
+The live app reads **only** the current contract. That docket now shows all three outcomes with real payable settlement.
 
 ### Current contract — `0x114F72F1b65f60d8ed9244B573F0c7F3a980814B`
 
 Deploy: `0xb42c319191c23b9615beab9174571735d8c861f5bbc7b28c37ff3549bc44e396`
 
-| Case | Outcome | Bond | Control statement |
-|---|---|---|---|
-| [CASE-0001](https://sybil-court.vercel.app/cases/CASE-0001) | not judged | locked 0.01 GEN | none — unsigned path still works |
-| [CASE-0002](https://sybil-court.vercel.app/cases/CASE-0002) | **Contested** | locked; 7-day appeal open | present; signer matches target; 6,326-character verdict names the signature |
+`eligible_count` is `1`. Treasury is `0.01 GEN`.
 
-This contract has no Eligible or Ineligible judgment yet. `eligible_count` is `0`. Treasury is `0`.
+| Case | Outcome | Settlement |
+|---|---|---|
+| [CASE-0006](https://sybil-court.vercel.app/cases/CASE-0006) | **Eligible** | bond **returned** as credit; `is_eligible(0xd8dA6BF2…A96045)` is **true** |
+| [CASE-0004](https://sybil-court.vercel.app/cases/CASE-0004) | **Ineligible** | bond **slashed**; treasury `0.01 GEN`; wallet **not** listed |
+| [CASE-0002](https://sybil-court.vercel.app/cases/CASE-0002) | **Contested** | bond **locked**; 7-day appeal open; signed control statement present |
+| [CASE-0001](https://sybil-court.vercel.app/cases/CASE-0001) | not judged | unsigned path still works |
+
+CASE-0006 used fetched GitHub README / tutorial pages that print “Vitalik Buterin” next to the exact address. CASE-0004 used Hop issue #239, which names `0xfe7101d1…` as a parent hub. CoinDesk live HTML is now a challenge wall, so it was not used.
 
 | Step | Result | Transaction |
 |---|---|---|
-| `publish_policy` | POL-0001 | `0x922144d9587faed42959a65133861231cd2068fc2516ec6e57b09bdd155feef5` |
-| `submit_case` | CASE-0001 unsigned | `0x723fb3308eb3be0782d93242f974611cd22d02d3bbcef8d2c1873e087469f050` |
+| `publish_policy` | POL-0005 public-figure uniqueness | `0x72859e346f8410941548e9cd8ce6772989912f2b5099543f9004cbaec635ae11` |
+| `submit_case` | CASE-0006 locked 0.01 GEN | `0xb3cd1b3f96c1624059d6925bbbddf81d71b0e7f47204730aefce75d5ac2d1076` |
+| `judge_case` | Eligible, bond returned | `0x363077d699b5c9db5d3eb0089bbca9b24d0b6aa871f4430799c51a4c42886c97` |
+| `publish_policy` | POL-0003 Hop cluster | `0xb54fe817e6a1b83744d07f380350e3d1eaaf548f4021995b9d0a3c45bcd6f710` |
+| `submit_case` | CASE-0004 locked 0.01 GEN | `0xe42d7411c11e47a246d9ea76de2f39a8f168a1f2c84dfc6b2a4f8fd34e1dc06c` |
+| `judge_case` | Ineligible, slashed | `0xe58a514ba9b0566b3a12d3d7506df99399c3704dcf07b9d607ad6fcdb7a062e8` |
 | `submit_case` | CASE-0002 signed | `0xf31836e3ca61751f89f7dbfd5f1433d099fae819d591b97d88a06fbc17a2337c` |
 | `judge_case` | CASE-0002 Contested | `0x6694e191bd69387bdd610e3aecf80a8837d9e938b43a7a2b8f2ab499b78a281b` |
 
 ### Previous bonded contract — `0x573ae3ba443fc3b5bAA52b9B1030c4eA0c0cf69c`
 
-Same bond, registry, slash, and appeal code. **No signed control statements.** The live frontend does not read this address. Settlement proofs below are on-chain reads of that contract.
+Historical. Same settlement code, no signed control statements. The live frontend does not read this address. Kept for the settled **appeal** (2× bond, both returned as credits).
 
 Deploy: `0x3c9098960f9093be9d4d99d47642fa3217ae052cef9fd21977f69ea8fe4261f8`
 
@@ -251,6 +259,7 @@ genlayer deploy --contract contracts/sybil_court.py
 | `app/api/genlayer/route.ts` | Studio JSON-RPC proxy |
 | `app/api/recommend-policy/route.ts` | Gemini policy draft |
 | `scripts/sign-smoke.mjs` | Unsigned + signed submit, then judge |
+| `scripts/current-settlement-proof.mjs` | Eligible / Ineligible payable proofs on the current contract |
 | `scripts/bond-smoke.mjs` | Earlier Eligible / Ineligible / appeal smoke (previous contract) |
 
 ## Tech stack

@@ -22,7 +22,7 @@ For the steward. Product facts only. The live app is [https://sybil-court.vercel
 **Proof on the current contract**
 
 - [CASE-0001](https://sybil-court.vercel.app/cases/CASE-0001) — unsigned filing still works (`control_statement.present = false`).
-- [CASE-0002](https://sybil-court.vercel.app/cases/CASE-0002) — signed; signer matches target; Contested verdict (6,326 characters) names the stored signature. Judge tx `0x6694e191bd69387bdd610e3aecf80a8837d9e938b43a7a2b8f2ab499b78a281b`.
+- [CASE-0002](https://sybil-court.vercel.app/cases/CASE-0002) — signed; signer matches target; Contested verdict names the stored signature. Judge tx `0x6694e191bd69387bdd610e3aecf80a8837d9e938b43a7a2b8f2ab499b78a281b`.
 
 ## 2. The outcome has a real consequence
 
@@ -39,15 +39,17 @@ For the steward. Product facts only. The live app is [https://sybil-court.vercel
 
 **Studio limit:** refunds are **on-contract credits**. `withdraw()` may not pay native GEN on Studio. That is documented in the UI and here. It is not a hidden native payout.
 
-**Settlement proofs** are on the previous bonded contract `0x573ae3ba443fc3b5bAA52b9B1030c4eA0c0cf69c` (same economics; the live app does not read it):
+**Settlement on the current contract** (`0x114F72F1b65f60d8ed9244B573F0c7F3a980814B`), which is what the live app reads:
 
-| Case | Consequence |
-|---|---|
-| CASE-0001 Eligible | bond returned as credit; `is_eligible(Vitalik)` true |
-| CASE-0002 Ineligible | 0.01 GEN in treasury |
-| CASE-0003 Contested + appeal Contested | both bonds returned as credits |
+| Case | Outcome | Consequence |
+|---|---|---|
+| [CASE-0006](https://sybil-court.vercel.app/cases/CASE-0006) | Eligible | bond returned as credit; `is_eligible(0xd8dA6BF2…A96045)` true |
+| [CASE-0004](https://sybil-court.vercel.app/cases/CASE-0004) | Ineligible | 0.01 GEN slashed to treasury; wallet not listed |
+| [CASE-0002](https://sybil-court.vercel.app/cases/CASE-0002) | Contested | bond still locked; 7-day appeal window open |
 
-The current contract has the same settlement code. Its judged example is Contested (bond still locked, window open). It has not produced Eligible or Ineligible yet.
+Judge txs: Eligible `0x363077d699b5c9db5d3eb0089bbca9b24d0b6aa871f4430799c51a4c42886c97`. Ineligible `0xe58a514ba9b0566b3a12d3d7506df99399c3704dcf07b9d607ad6fcdb7a062e8`.
+
+A settled 2× appeal (both credits returned) still lives on the previous bonded contract `0x573ae3ba…`. The live app does not read that address.
 
 ## 3. The interface matches the implemented economics
 
