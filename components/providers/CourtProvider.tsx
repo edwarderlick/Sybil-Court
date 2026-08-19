@@ -58,6 +58,9 @@ type SubmitInput = {
   evidence: string[];
   stakeAmount: string;
   stakeToken: string;
+  controlMessage?: string;
+  controlSignature?: string;
+  controlSigner?: string;
 };
 
 type CourtContextValue = CourtState & {
@@ -96,10 +99,19 @@ export function CourtProvider({ children }: { children: React.ReactNode }) {
     (snapshot: Awaited<ReturnType<typeof loadCourtSnapshot>>) => {
       const nextPolicies = snapshot.policies.map(policyFromContract);
       const policyMap = new Map(nextPolicies.map((item) => [item.id, item]));
+      const eligibleSet = new Set(
+        (snapshot.eligibility ?? [])
+          .filter((item) => item.eligible)
+          .map((item) => item.wallet.trim().toLowerCase()),
+      );
       setPolicies(nextPolicies);
       setCases(
         snapshot.cases.map((item) =>
-          caseFromContract(item, policyMap.get(item.policy_id)),
+          caseFromContract(
+            item,
+            policyMap.get(item.policy_id),
+            eligibleSet.has(item.wallet.trim().toLowerCase()),
+          ),
         ),
       );
       setLastPolicyId(snapshot.lastPolicyId);
@@ -188,6 +200,9 @@ export function CourtProvider({ children }: { children: React.ReactNode }) {
           input.policyId,
           encodeEvidenceBlob(input.evidence),
           parseBondAtto(`${input.stakeAmount} ${input.stakeToken}`),
+          input.controlMessage ?? "",
+          input.controlSignature ?? "",
+          input.controlSigner ?? "",
         );
         setLastTxHash(result.hash);
         await refresh();
@@ -203,7 +218,7 @@ export function CourtProvider({ children }: { children: React.ReactNode }) {
         const policy =
           snapshot.policies.find((item) => item.id === created.policy_id) ??
           policies.find((item) => item.id === created.policy_id);
-        const record = caseFromContract(created, policy);
+        const record = caseFromContract(created, policy, false);
         setActiveCaseId(record.id);
         return record;
       }),
@@ -244,7 +259,13 @@ export function CourtProvider({ children }: { children: React.ReactNode }) {
         const policy = snapshot.policies.find(
           (item) => item.id === updated.policy_id,
         );
-        return caseFromContract(updated, policy);
+        const eligible = snapshot.eligibility?.some(
+          (item) =>
+            item.eligible &&
+            item.wallet.trim().toLowerCase() ===
+              updated.wallet.trim().toLowerCase(),
+        );
+        return caseFromContract(updated, policy, Boolean(eligible));
       }),
     [address, refresh, runWrite],
   );
@@ -266,7 +287,13 @@ export function CourtProvider({ children }: { children: React.ReactNode }) {
         const policy = snapshot.policies.find(
           (item) => item.id === updated.policy_id,
         );
-        return caseFromContract(updated, policy);
+        const eligible = snapshot.eligibility?.some(
+          (item) =>
+            item.eligible &&
+            item.wallet.trim().toLowerCase() ===
+              updated.wallet.trim().toLowerCase(),
+        );
+        return caseFromContract(updated, policy, Boolean(eligible));
       }),
     [address, refresh, runWrite],
   );

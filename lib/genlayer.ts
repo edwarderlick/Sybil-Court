@@ -4,7 +4,7 @@ import type { Account, Address } from "viem";
 
 export const SYBIL_COURT_ADDRESS = (process.env
   .NEXT_PUBLIC_SYBIL_COURT_ADDRESS ??
-  "0xFCA5d6960da9833f241c98f5677a0284534B7723") as Address;
+  "0x114F72F1b65f60d8ed9244B573F0c7F3a980814B") as Address;
 
 export const STUDIO_RPC =
   process.env.NEXT_PUBLIC_GENLAYER_RPC ?? "https://studio.genlayer.com/api";

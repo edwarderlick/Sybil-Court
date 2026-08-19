@@ -1,4 +1,5 @@
 import { parseEther } from "viem";
+import type { ControlStatementView } from "./controlStatement";
 import { featuredCase, policyDraft, submitPolicies } from "./content";
 import type { ContractCase, ContractPolicy } from "./contract";
 
@@ -53,7 +54,41 @@ export type CaseRecord = {
   submitter?: string;
   seed?: boolean;
   appeal?: AppealRecord;
+  bondStatus?: string;
+  appealDeadline?: string;
+  appealOpensAt?: string;
+  appealWindowOpen?: boolean;
+  registryEligible?: boolean;
+  minAppealBond?: string;
+  controlStatement?: ControlStatementView;
 };
+
+export const MIN_SUBMIT_BOND_ATTO = BigInt(10) ** BigInt(16);
+
+export function appealWindowOpen(
+  deadline: string,
+  appealFiled: boolean,
+  outcome: string,
+): boolean {
+  if (appealFiled || outcome !== "Contested" || !deadline) return false;
+  const stamp = Date.parse(deadline);
+  if (Number.isNaN(stamp)) return false;
+  return Date.now() <= stamp;
+}
+
+export function formatDeadline(deadline: string): string {
+  const stamp = Date.parse(deadline);
+  if (Number.isNaN(stamp)) return deadline || "not open";
+  return new Date(stamp).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+}
+
+export function doubleBond(atto: string): string {
+  try {
+    return formatBond((BigInt(atto || "0") * BigInt(2)).toString());
+  } catch {
+    return formatBond(atto);
+  }
+}
 
 export function policyDraftText() {
   return [
@@ -246,11 +281,18 @@ export function policyFromContract(item: ContractPolicy): PolicyRecord {
 export function caseFromContract(
   item: ContractCase,
   policy?: PolicyRecord | ContractPolicy,
+  registryEligible = false,
 ): CaseRecord {
   const activeVerdict = item.appeal.verdict.issued
     ? item.appeal.verdict
     : item.verdict;
   const verdictText = activeVerdict.issued ? activeVerdict.text : "";
+  const bondStatus = item.bond_status || (item.status === "submitted" ? "locked" : "");
+  const windowOpen = appealWindowOpen(
+    item.appeal_deadline,
+    item.appeal.filed,
+    item.verdict.outcome,
+  );
   return {
     id: item.id,
     docket: item.id,
@@ -263,16 +305,22 @@ export function caseFromContract(
     policyText: policy?.body ?? "",
     stake: formatBond(item.bond_atto),
     stakeLabel:
-      item.status === "judged" || item.status === "appeal_judged"
-        ? "BOND ON RECORD"
-        : "STAKE AT RISK",
+      bondStatus === "returned"
+        ? "BOND RETURNED (CREDIT)"
+        : bondStatus === "slashed"
+          ? "BOND SLASHED TO TREASURY"
+          : bondStatus === "locked"
+            ? "BOND LOCKED"
+            : "BOND ON RECORD",
     project: policy?.project,
     meterLabel:
       item.status === "appealed"
         ? "APPEAL PENDING"
-        : item.verdict.issued
-          ? "JUDGMENT FINALIZED"
-          : "AWAITING JUDGMENT",
+        : windowOpen
+          ? "APPEAL WINDOW OPEN"
+          : item.verdict.issued
+            ? "JUDGMENT FINALIZED"
+            : "AWAITING JUDGMENT",
     filled: item.verdict.issued ? 3 : 1,
     verdict: verdictText ? [verdictText] : [],
     verdictText: verdictText || undefined,
@@ -288,7 +336,14 @@ export function caseFromContract(
     appeal: item.appeal.filed
       ? { reason: item.appeal.reason, stake: formatBond(item.appeal.bond_atto) }
       : undefined,
-    appealStake: formatBond(item.appeal.bond_atto || item.bond_atto),
+    appealStake: doubleBond(item.bond_atto),
+    bondStatus,
+    appealDeadline: item.appeal_deadline,
+    appealOpensAt: item.appeal_opens_at,
+    appealWindowOpen: windowOpen,
+    registryEligible,
+    minAppealBond: doubleBond(item.bond_atto),
+    controlStatement: item.control_statement,
   };
 }
 

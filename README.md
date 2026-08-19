@@ -1,8 +1,8 @@
 # Sybil Court
 
-Sybil Court is a GenLayer Intelligent Contract plus a Next.js dApp. An operator publishes a full eligibility policy, someone submits a wallet with public evidence links, and validators fetch those pages and store a full written verdict on-chain.
+A GenLayer Intelligent Contract and Next.js dApp. An operator publishes a full eligibility policy. Someone submits a wallet with public evidence links, optionally signs a control statement, and locks a payable GEN bond. Validators fetch those pages and store a **full written verdict** on-chain.
 
-Outcomes are **Eligible**, **Ineligible**, or **Contested**. The court does not invent transactions, balances, or identity. If a source fails or is thin, the verdict says so.
+Outcomes are **Eligible**, **Ineligible**, or **Contested**. The court does not invent transactions, balances, or identity. A signature is not identity. If a source fails or is thin, the verdict says so.
 
 ## Live
 
@@ -11,46 +11,81 @@ Outcomes are **Eligible**, **Ineligible**, or **Contested**. The court does not 
 | App | [https://sybil-court.vercel.app](https://sybil-court.vercel.app) |
 | Repo | [https://github.com/edwarderlick/Sybil-Court](https://github.com/edwarderlick/Sybil-Court) |
 | Network | GenLayer studionet (chain `61999`) |
-| Contract | [`0xFCA5d6960da9833f241c98f5677a0284534B7723`](https://sybil-court.vercel.app/cases/CASE-0003) |
-| Example docket | [CASE-0003 Eligible](https://sybil-court.vercel.app/cases/CASE-0003) · [CASE-0004 Ineligible](https://sybil-court.vercel.app/cases/CASE-0004) · [CASE-0001 Contested](https://sybil-court.vercel.app/cases/CASE-0001) |
+| **Current contract** | [`0x114F72F1b65f60d8ed9244B573F0c7F3a980814B`](https://sybil-court.vercel.app/cases/CASE-0002) |
+| Current docket | [CASE-0001 unsigned](https://sybil-court.vercel.app/cases/CASE-0001) · [CASE-0002 signed Contested](https://sybil-court.vercel.app/cases/CASE-0002) |
+| Previous bonded contract | `0x573ae3ba443fc3b5bAA52b9B1030c4eA0c0cf69c` (Eligible / Ineligible / appeal proofs; not what the live app reads) |
 
-Studio is gasless. Connect an injected wallet, switch it to studionet if prompted, then Publish Policy → Submit Wallet → Run Judgment.
+Connect an injected wallet, switch to studionet if prompted, then **Publish → Submit → Judge**. Submit and appeal send real payable GEN. Studio fees are gasless.
+
+Steward resubmission answers are in [RESUBMISSION.md](./RESUBMISSION.md).
 
 ## How it works
 
 ```mermaid
 flowchart TD
   A[Operator] -->|publish_policy| C[SybilCourt on studionet]
-  B[Submitter] -->|submit_case wallet + HTTPS links| C
+  B[Submitter] -->|submit_case wallet + links + optional signature + payable GEN| C
   D[Judge] -->|judge_case / judge_appeal| C
   C -->|user links first then chain explorers| E[gl.nondet.web.get / render]
   E --> F[prompt_non_comparative full verdict text]
   E --> G["prompt_comparative JSON outcome + summary"]
   F --> H[Stored on-chain untruncated]
   G --> H
-  I[Next.js app] -->|reads via /api/genlayer proxy| C
-  I -->|writes via injected wallet + genlayer-js| C
-  J[Gemini 2.5 Flash] -.->|optional policy draft only| I
+  H --> I[Settle bond: credit + registry / treasury slash / 7-day appeal]
+  J[Next.js app] -->|reads via /api/genlayer proxy| C
+  J -->|writes via injected wallet + genlayer-js| C
 ```
 
-1. **Publish a policy.** The full body is stored. The Publish page can ask Gemini for a draft; the operator must Accept, Edit, or Discard before anything is written on-chain.
-2. **Submit a wallet.** Target address plus up to five user HTTPS links (JSON array, newlines, or inline URLs). Optional bond is recorded in GEN (18 decimals). Studio does not charge gas.
-3. **Run judgment.** `judge_case` (or `judge_appeal`) copies the packet out of storage, fetches evidence, writes the full verdict, then settles the outcome.
-4. **Read the docket.** The case page shows the outcome badge, summary, evidence inventory, and the exact stored verdict text.
+1. **Publish a policy.** The full body is stored. Gemini can draft; the operator must Accept, Edit, or Discard before anything is written.
+2. **Submit a wallet.** Target address, up to five HTTPS links, optional signed control statement. At least **0.01 GEN** is sent with the transaction and locked.
+3. **Run judgment.** Validators fetch the pages, write the full verdict, then settle the bond.
+4. **Read the docket.** Outcome, bond status, registry listing, appeal window, signed statement if any, and the exact stored verdict text.
 
-Judgment is two sequential consensus rounds. Several minutes is normal. Keep the tab open.
+Judgment is two consensus rounds. Several minutes is normal. Keep the tab open.
+
+## Bonds and settlement
+
+These are real payable locks on studionet, not UI labels.
+
+| First outcome | What the contract does |
+|---|---|
+| **Eligible** | Submit bond becomes an on-contract **credit**. Target wallet is listed in `eligible_wallets`. |
+| **Ineligible** | Submit bond is **slashed to the treasury**. Wallet is cleared from the registry. |
+| **Contested** | Bond stays **locked**. A **7-day** appeal window opens. Appeal requires **2×** the submit bond, also payable. |
+
+Appeal settlement:
+
+| Appeal outcome | Submit bond | Appeal bond |
+|---|---|---|
+| Eligible | returned as credit; wallet listed | returned as credit |
+| Ineligible | slashed to treasury | returned as credit |
+| Contested | returned as credit | returned as credit |
+
+`withdraw()` tries to pay a credit out natively. **Studio may not complete that payout** (no ghost/EVM layer). Credits are real contract balances; they are not a guaranteed native transfer.
+
+## Signed control statement
+
+Optional. Skip and the old unsigned path still works.
+
+The connected wallet signs a plain EIP-191 message that names the contract, policy id, target wallet, and signer, plus an honest limit. `submit_case` stores `control_message`, `control_signature`, and `control_signer`. `get_case` exposes them.
+
+| It does | It does not |
+|---|---|
+| Bind a specific signing key to this filing | Prove legal identity, uniqueness, or humanity |
+| Let the verdict quote the stored signer and message | Recover the signer on-chain (the contract stores the bytes) |
+| Show whether the signer string equals the target | Replace fetched public pages as Eligible proof |
+
+If the connected key is not the target wallet, the UI says so. A signature is never enough for Eligible.
 
 ## Evidence gathering
 
-User-supplied links are always fetched first (max 5). If the wallet matches the detected chain, the contract then tries up to three public explorer pages.
+User links first (max 5). Then up to three public explorers for the chain named in the policy, or inferred only from a distinctive wallet shape.
 
-Detection order:
-
-1. Conservative phrases in the **policy title, policy body, and user URLs** (first match wins).
+1. Phrases in the **policy title, policy body, and user URLs** (first match wins).
 2. If the text is silent, a **Solana** base58 wallet (32–44 chars) selects Solana.
 3. Otherwise **Ethereum**, and only if the wallet is `0x` + 40 hex.
 
-A 64-hex address is Sui *or* Aptos, so that shape is never guessed. The policy must name the chain. A Solana or Sui policy does not fall back to Ethereum explorers.
+A 64-hex address is Sui *or* Aptos, so that shape is never guessed. A Solana or Sui policy does not fall back to Ethereum explorers.
 
 | Detected chain | Automatic explorers |
 |---|---|
@@ -64,62 +99,70 @@ A 64-hex address is Sui *or* Aptos, so that shape is never guessed. The policy m
 | Polygon | OKLink Polygon, Blockscout Polygon, Polygonscan |
 | Ethereum (default) | OKLink Ethereum, eth.blockscout, Etherchain |
 
-Each source is labeled honestly:
-
 | Label | Meaning |
 |---|---|
 | `SOURCE` / fetched | Readable public HTML was retrieved |
 | `FETCH_THIN` | Challenge wall, title-only stub, or almost no text |
 | `FETCH_FAILED` | HTTP error, DNS failure, or empty body |
 
-Readable fetch text is clipped at 5,000 characters per source for the prompt budget. **The stored verdict is not clipped.**
+Fetch text is clipped at 5,000 characters per source for the prompt. **The stored verdict is not clipped.**
 
 ## Outcomes
 
-The written verdict is produced with `gl.eq_principle.prompt_non_comparative` (grounded in the policy + fetched text). The label is produced with `gl.eq_principle.prompt_comparative` on JSON `{ outcome, summary }`. The principle is that the `outcome` field must match.
+The written verdict uses `prompt_non_comparative` (policy + control statement + fetched text). The label uses `prompt_comparative` on JSON `{ outcome, summary }`. The `outcome` field must match.
 
-| Outcome | When the contract is allowed to use it |
+| Outcome | When the contract may use it |
 |---|---|
 | **Eligible** | Fetched pages themselves clearly satisfy the policy’s uniqueness / non-sybil test |
 | **Ineligible** | Fetched pages themselves clearly show farming, clusters, or other policy-defined sybil behavior |
 | **Contested** | Required proof is missing, sources failed or are thin, or the record is off-topic / contradictory |
 
-A biography, homepage, or explorer interstitial is not uniqueness proof by itself. This contract now has live examples of all three outcomes.
+A biography, homepage, or explorer interstitial is not uniqueness proof. Eligible required a fetched page that named the person **and** printed the exact address. Ineligible required a fetched page that named the wallet as a cluster parent.
 
-### Live rounds on this contract
+## Proofs
 
-Deploy: `0x90e2931ccb06f66355ed08e546674fcab1a9cc9d5652365f492521fca306310f`
+The live app reads **only** the current contract. Prefer those two dockets first.
 
-| Case | Policy | Wallet | Outcome | Why | Judge tx |
-|---|---|---|---|---|---|
-| [CASE-0003](https://sybil-court.vercel.app/cases/CASE-0003) | Public Figure Wallet Uniqueness | `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` | **Eligible** | CoinDesk names Vitalik Buterin and prints this exact address as “his address.” | [`0x1e669860…7ccd79`](https://sybil-court.vercel.app/cases/CASE-0003) |
-| [CASE-0004](https://sybil-court.vercel.app/cases/CASE-0004) | Hop Airdrop Cluster Funding | `0xfe7101d155eb11640e5a4bf342cd066dce51e9e3` | **Ineligible** | Hop issue #239 (Valid Report) lists this wallet as the parent hub that funded a 15-address child cluster. | [`0x32ad9b41…2cc407`](https://sybil-court.vercel.app/cases/CASE-0004) |
-| [CASE-0001](https://sybil-court.vercel.app/cases/CASE-0001) | Solana Airdrop Uniqueness | `5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9` | **Contested** | Wikipedia fetched (no wallet). Solana explorers 404 / 403 / thin. | [`0xaa266ee6…4b476e`](https://sybil-court.vercel.app/cases/CASE-0001) |
-| [CASE-0002](https://sybil-court.vercel.app/cases/CASE-0002) | Sui Airdrop Uniqueness | `0x307784044da0dc83b942999821fafa0740dc3584457d89f4aa0820b3e210c995` | **Contested** | Wikipedia fetched (no operator). OKLink Sui showed no txs. | [`0x6dd5b2ff…457fea3`](https://sybil-court.vercel.app/cases/CASE-0002) |
+### Current contract — `0x114F72F1b65f60d8ed9244B573F0c7F3a980814B`
+
+Deploy: `0xb42c319191c23b9615beab9174571735d8c861f5bbc7b28c37ff3549bc44e396`
+
+| Case | Outcome | Bond | Control statement |
+|---|---|---|---|
+| [CASE-0001](https://sybil-court.vercel.app/cases/CASE-0001) | not judged | locked 0.01 GEN | none — unsigned path still works |
+| [CASE-0002](https://sybil-court.vercel.app/cases/CASE-0002) | **Contested** | locked; 7-day appeal open | present; signer matches target; 6,326-character verdict names the signature |
+
+This contract has no Eligible or Ineligible judgment yet. `eligible_count` is `0`. Treasury is `0`.
 
 | Step | Result | Transaction |
 |---|---|---|
-| `publish_policy` | POL-0003 Public figure uniqueness | `0x92c3c62e34969bda13f75661b8151bfb578cd5585525bc43b6325aa3cca66371` |
-| `submit_case` | CASE-0003 | `0x8922bcf6abe25c3ec475525f5316d57634de7bb184322d18a7bf9d141fec2fde` |
-| `judge_case` | Eligible | `0x1e669860579f80f40a90ac5ab5f1fdd899d646918a50774d4b084202d77ccd79` |
-| `publish_policy` | POL-0004 Hop cluster funding | `0xbe6310f633038603e5ba122ffd4129371be2efec78a36083a13e9c68aa2e9f5f` |
-| `submit_case` | CASE-0004 | `0xa5d27fbda176e4e138f0185f76b6b10ed81e4e1d265021d4f0592ea40571693b` |
-| `judge_case` | Ineligible | `0x32ad9b41800aea2ec3d3efc28e18fa2ea53320b42e5fc71a0aa2bf4d312cc407` |
-| `publish_policy` | POL-0001 Solana | `0x681d6fc0e30b10469e36c1938a5993f464c2d6dfd9195edba4761dc1b4001a23` |
-| `submit_case` | CASE-0001 | `0x5fb6121b3a13660005ddfe0ebcaf291433d646bb4df71d4c22f70a85076117e1` |
-| `judge_case` | Contested | `0xaa266ee6fe9f9af3872a8aaec2b97c48d6ab590083cc1fc01140d138ce4b476e` |
-| `publish_policy` | POL-0002 Sui | `0x95054200b752fde571ab86f1e28a585809401a7cc0c35849edf45e7f07207715` |
-| `submit_case` | CASE-0002 | `0xfb3124f6cb39324a78f4ae2503ee441ae20ef11627d2a47a0f6c4eda44b24d44` |
-| `judge_case` | Contested | `0x6dd5b2ff00e6330ce0e24fc0629fa2643840e6ff9a050f161ef983661457fea3` |
+| `publish_policy` | POL-0001 | `0x922144d9587faed42959a65133861231cd2068fc2516ec6e57b09bdd155feef5` |
+| `submit_case` | CASE-0001 unsigned | `0x723fb3308eb3be0782d93242f974611cd22d02d3bbcef8d2c1873e087469f050` |
+| `submit_case` | CASE-0002 signed | `0xf31836e3ca61751f89f7dbfd5f1433d099fae819d591b97d88a06fbc17a2337c` |
+| `judge_case` | CASE-0002 Contested | `0x6694e191bd69387bdd610e3aecf80a8837d9e938b43a7a2b8f2ab499b78a281b` |
 
-## AI policy recommendation
+### Previous bonded contract — `0x573ae3ba443fc3b5bAA52b9B1030c4eA0c0cf69c`
 
-`POST /api/recommend-policy` calls Gemini (`gemini-2.5-flash`) with a server-only `GEMINI_API_KEY`.
+Same bond, registry, slash, and appeal code. **No signed control statements.** The live frontend does not read this address. Settlement proofs below are on-chain reads of that contract.
 
-- Empty hint → a general uniqueness policy.
-- Non-empty hint → the draft must follow that request (chain, airdrop, product).
+Deploy: `0x3c9098960f9093be9d4d99d47642fa3217ae052cef9fd21977f69ea8fe4261f8`
 
-The draft is **not** stored until the operator accepts or edits it. Gemini is not used for judgment. If the key is missing, the route returns HTTP 503 with a real error.
+| Case | Outcome | Bond / registry |
+|---|---|---|
+| CASE-0001 | **Eligible** | returned as credit; `is_eligible(0xd8dA6BF2…A96045)` is true |
+| CASE-0002 | **Ineligible** | slashed; treasury `0.01 GEN` |
+| CASE-0003 | **Contested**, appeal **Contested** | both bonds returned as credits |
+
+| Step | Result | Transaction |
+|---|---|---|
+| `submit_case` | CASE-0001 locked 0.01 GEN | `0xe48a3463744772033b194b46cd2acef30fbb79f1ffe77be053879f5714426bb4` |
+| `judge_case` | Eligible, bond returned | `0x52f2dab5524ce38e3d6d208df011830bdc49480079eae51bad4186eb1f333d5c` |
+| `submit_case` | CASE-0002 locked 0.01 GEN | `0x8a1a92a959211b0db01501e90f12d55616aebe0e9d074136126af2bae8748748` |
+| `judge_case` | Ineligible, slashed | `0xc02a56e18cc79197baeba3e2f23fe5ad8e17cfc27178b92d7910a5f9fe41d595` |
+| `submit_case` | CASE-0003 locked 0.01 GEN | `0xb903b92473e7621665cb89d5bf55014745ae72c75b2f75b8fed180636b5ef5d5` |
+| `judge_case` | Contested, window opened | `0x3e808a938838d7d56e81b4cd854edcc2a6acc37e5f5644bf240718ba0f052733` |
+| `file_appeal` | 0.02 GEN locked | `0xaff01ce202d1ecba0b815a5b6847cf09b34521437df16beffdade1257cd11c25` |
+| `judge_appeal` | Contested, both refunded | `0xd09766e3076784a0d0a2f67a903babb2638161fbd408afb72101efacb8cf9714` |
 
 ## Contract surface
 
@@ -128,14 +171,16 @@ The draft is **not** stored until the operator accepts or edits it. Gemini is no
 | Method | Kind | Role |
 |---|---|---|
 | `publish_policy(title, body, project, source)` | write | Store the full policy |
-| `submit_case(wallet, policy_id, evidence_blob, bond_atto)` | write | Open a case |
-| `judge_case(case_id)` | write | First verdict |
-| `file_appeal(case_id, reason, bond_atto)` | write | Challenge after a first verdict |
-| `judge_appeal(case_id)` | write | Appeal verdict |
-| `get_policy` / `get_case` / `get_verdict` | view | Read stored state |
+| `submit_case(..., control_message, control_signature, control_signer)` | write | Open a case. Control fields may be empty. |
+| `judge_case` / `judge_appeal` | write | Verdict, then bond settlement |
+| `file_appeal` | write | Contested only, inside the 7-day window, 2× bond |
+| `get_case` | view | Docket, links, control statement, verdict |
+| `is_eligible` / `get_bond_status` / `get_economics` | view | Registry, lock/return/slash, treasury |
+| `finalize_expired_appeal` | write | Return a locked bond after the window |
+| `withdraw` | write | Attempt credit payout (Studio may not pay natively) |
 | `list_policy_ids` / `list_case_ids` | view | Indexes |
 
-Wallet is stored as `str` so Solana pubkeys and Sui 32-byte hex addresses are valid. Evidence is a `str` blob, parsed into HTTPS links at judgment time.
+Wallet is a `str`, so Solana pubkeys and Sui 32-byte hex addresses are valid.
 
 ## Architecture
 
@@ -145,15 +190,20 @@ Browser (injected wallet)
   ├─ UI reads  ──► /api/genlayer  ──► https://studio.genlayer.com/api
   │
   ├─ UI writes ──► genlayer-js + window.ethereum ──► studionet
+  │                 submit_case / file_appeal send msg.value
   │
   └─ Publish draft ──► /api/recommend-policy ──► Gemini (optional)
 
 SybilCourt
-  publish / submit / appeal     deterministic storage
-  judge_case / judge_appeal     nondet fetch + two equivalence helpers
+  publish / submit / appeal     deterministic storage + payable lock
+  judge_case / judge_appeal     nondet fetch + two equivalence helpers + settle
 ```
 
-Studio CORS is not reliable from a web origin, so the app proxies JSON-RPC through `app/api/genlayer/route.ts`. `FINALIZED` means the network accepted the transaction outcome. It does not by itself prove execution succeeded — the frontend checks the leader `execution_result`.
+Studio CORS is not reliable from a web origin, so the app proxies JSON-RPC through `app/api/genlayer/route.ts`. `FINALIZED` means the network accepted the transaction. The frontend still checks the leader `execution_result`.
+
+## AI policy recommendation
+
+`POST /api/recommend-policy` calls Gemini (`gemini-2.5-flash`) with a server-only `GEMINI_API_KEY`. The draft is not stored until the operator accepts or edits it. Gemini is not used for judgment. Missing key → HTTP 503 with a real error.
 
 ## Run locally
 
@@ -165,50 +215,43 @@ npm install
 npm run dev
 ```
 
-`.env.example`:
-
 ```
 NEXT_PUBLIC_GENLAYER_RPC=https://studio.genlayer.com/api
 NEXT_PUBLIC_GENLAYER_CHAIN_ID=61999
-NEXT_PUBLIC_SYBIL_COURT_ADDRESS=0xFCA5d6960da9833f241c98f5677a0284534B7723
+NEXT_PUBLIC_SYBIL_COURT_ADDRESS=0x114F72F1b65f60d8ed9244B573F0c7F3a980814B
 GENLAYER_RPC=https://studio.genlayer.com/api
 GEMINI_API_KEY=
 ```
 
-`GEMINI_API_KEY` is server-only. Leave it blank if you do not need policy recommendation.
-
-To deploy your own contract on studionet:
+Leave `GEMINI_API_KEY` blank if you do not need policy drafts.
 
 ```bash
 genlayer network set studionet
-genlayer account create --name local-deploy
-genlayer account use local-deploy
 genlayer deploy --contract contracts/sybil_court.py
 ```
-
-Put the printed address in `.env.local` and restart the app.
 
 ## Limitations
 
 - **No native chain RPC.** Studio has no usable `@gl.evm.contract_interface` for Ethereum, and no Solana or Sui RPC. Evidence is public HTML only.
-- **Explorers often fail.** Cloudflare walls, 403s, 404s, and SPA shells are common. They stay `FETCH_THIN` or `FETCH_FAILED`.
-- **Eligible / Ineligible are strict.** A biography without the wallet stays Contested. Eligible on this contract required a fetched page that named the person *and* printed the exact address. Ineligible required a fetched page that named the wallet as a cluster parent.
-- **Judgment is slow.** Two consensus rounds re-fetch every URL. Studio is also rate-limited (writes can hit 30 req/min).
-- **Landing, passport, and leaderboard** still use the original Stitch visual language. The live contract path is Policy, Submit, Cases, Appeal, Activity, and the docket.
-- **Bonds** are stored as 18-decimal GEN. Studio is gasless, so a bond is a recorded amount, not an economic lock on Ethereum.
+- **Explorers often fail.** Cloudflare walls, 403s, 404s, and SPA shells stay `FETCH_THIN` or `FETCH_FAILED`.
+- **Eligible / Ineligible are strict.** A biography without the wallet stays Contested.
+- **Signature is not identity.** The contract stores the signed bytes. It does not recover the key.
+- **Credits ≠ native payout.** Refunds are on-contract credits. `withdraw()` may not pay out on Studio.
+- **Judgment is slow.** Two consensus rounds. Studio writes can hit 30 req/min.
+- **Landing, passport, and leaderboard** still use the original Stitch visual language. The live path is Policy, Submit, Cases, Appeal, Activity, and the docket.
 
 ## Repo map
 
 | Path | Role |
 |---|---|
-| `contracts/sybil_court.py` | Policy, case, appeal, fetch, both equivalence helpers |
+| `contracts/sybil_court.py` | Policy, case, bonds, signature fields, fetch, both helpers |
 | `lib/contract.ts`, `lib/genlayer.ts` | Frontend read/write client |
-| `lib/verdictView.ts` | Presentation-only verdict parser (does not change judgment) |
+| `lib/controlStatement.ts` | Optional EIP-191 message builder |
+| `lib/verdictView.ts` | Presentation-only verdict parser |
 | `app/api/genlayer/route.ts` | Studio JSON-RPC proxy |
 | `app/api/recommend-policy/route.ts` | Gemini policy draft |
-| `components/providers/CourtProvider.tsx` | Writes, then refresh from chain |
-| `scripts/chain-round.mjs` | Solana / Sui smoke helper |
-| `scripts/proof-round.mjs` | Eligible / Ineligible proof helper |
+| `scripts/sign-smoke.mjs` | Unsigned + signed submit, then judge |
+| `scripts/bond-smoke.mjs` | Earlier Eligible / Ineligible / appeal smoke (previous contract) |
 
 ## Tech stack
 

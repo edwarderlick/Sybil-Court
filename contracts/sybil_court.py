@@ -64,6 +64,12 @@ class Case:
     evidence_blob: str
     verdict: Verdict
     appeal: Appeal
+    bond_status: str
+    appeal_opens_at: str
+    appeal_deadline: str
+    control_message: str
+    control_signature: str
+    control_signer: str
 
 
 def _empty_verdict() -> Verdict:
@@ -71,6 +77,15 @@ def _empty_verdict() -> Verdict:
 
 
 ZERO_ADDRESS = Address("0x0000000000000000000000000000000000000000")
+
+
+@gl.evm.contract_interface
+class _NativeRecipient:
+    class View:
+        pass
+
+    class Write:
+        pass
 
 
 def _empty_appeal() -> Appeal:
@@ -178,10 +193,101 @@ def _appeal_dict(appeal: Appeal) -> dict:
     }
 
 
+def _message_datetime() -> str:
+    try:
+        raw = gl.message_raw.get("datetime", "")
+        return _as_text(raw).strip()
+    except Exception:
+        return ""
+
+
+def _parse_iso_datetime(text: str):
+    import datetime
+
+    cleaned = text.strip().replace("Z", "+00:00")
+    if cleaned == "":
+        return None
+    try:
+        return datetime.datetime.fromisoformat(cleaned)
+    except Exception:
+        return None
+
+
+def _now_dt():
+    import datetime
+
+    parsed = _parse_iso_datetime(_message_datetime())
+    if parsed is not None:
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=datetime.timezone.utc)
+        return parsed
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _iso(dt) -> str:
+    return dt.isoformat()
+
+
+def _add_seconds(dt, seconds: int):
+    import datetime
+
+    return dt + datetime.timedelta(seconds=seconds)
+
+
+def _wallet_key(wallet: str) -> str:
+    return wallet.strip().lower()
+
+
+def _wallets_equal(left: str, right: str) -> bool:
+    a = _wallet_key(left)
+    b = _wallet_key(right)
+    return a != "" and a == b
+
+
+def _control_dict(case: Case) -> dict:
+    present = case.control_signature.strip() != ""
+    return {
+        "present": present,
+        "message": case.control_message,
+        "signature": case.control_signature,
+        "signer": case.control_signer,
+        "signer_matches_target": present
+        and _wallets_equal(case.control_signer, case.wallet),
+        "message_names_wallet": present
+        and case.wallet.strip() != ""
+        and case.wallet.strip() in case.control_message,
+        "message_names_policy": present
+        and case.policy_id.strip() != ""
+        and case.policy_id.strip() in case.control_message,
+    }
+
+
+def _normalize_control(message: str, signature: str, signer: str) -> tuple[str, str, str]:
+    msg = _as_text(message).strip()
+    sig = _as_text(signature).strip()
+    who = _as_text(signer).strip()
+    if msg == "" and sig == "" and who == "":
+        return "", "", ""
+    if msg == "" or sig == "" or who == "":
+        raise gl.vm.UserError(
+            "[EXPECTED] Control statement requires message, signature, and signer together"
+        )
+    if len(msg) > 2048:
+        raise gl.vm.UserError("[EXPECTED] Control message is too long")
+    if len(sig) > 200:
+        raise gl.vm.UserError("[EXPECTED] Control signature is too long")
+    if len(who) > 128:
+        raise gl.vm.UserError("[EXPECTED] Control signer is too long")
+    return msg, sig, who
+
+
 OUTCOMES = ("Eligible", "Ineligible", "Contested")
 FETCH_CHAR_CAP = 5000
 MAX_USER_LINKS = 5
 MAX_FALLBACK_LINKS = 3
+MIN_SUBMIT_BOND = u256(10**16)  # 0.01 GEN
+APPEAL_BOND_MULT = u256(2)
+APPEAL_WINDOW_SECONDS = 7 * 24 * 60 * 60
 
 
 def _as_text(value) -> str:
@@ -596,6 +702,46 @@ def _collect_source_text(packet: dict) -> str:
         parts.append("PRIOR_VERDICT:\n" + packet["prior_verdict"])
         parts.append("APPEAL_REASON:\n" + packet["appeal_reason"])
 
+    if packet.get("control_present"):
+        match_label = (
+            "yes" if packet.get("control_signer_matches_target") else "no"
+        )
+        names_wallet = "yes" if packet.get("control_message_names_wallet") else "no"
+        names_policy = "yes" if packet.get("control_message_names_policy") else "no"
+        parts.append(
+            "CONTROL_STATEMENT:\n"
+            "present: yes\n"
+            "signer: "
+            + _as_text(packet.get("control_signer", ""))
+            + "\n"
+            "signer_matches_target: "
+            + match_label
+            + "\n"
+            "message_names_wallet: "
+            + names_wallet
+            + "\n"
+            "message_names_policy: "
+            + names_policy
+            + "\n"
+            "message:\n"
+            + _as_text(packet.get("control_message", ""))
+            + "\n"
+            "signature:\n"
+            + _as_text(packet.get("control_signature", ""))
+            + "\n"
+            "HONEST_LIMIT: This contract stored the submitted EIP-191 personal_sign "
+            "bytes. It did not recover the signer on-chain. A matching signer string "
+            "means the submitter claimed that key. This proves control of a signing "
+            "key only if independently recovered. It does not prove legal identity, "
+            "uniqueness, humanity, or any on-chain history."
+        )
+    else:
+        parts.append(
+            "CONTROL_STATEMENT:\n"
+            "present: no\n"
+            "No signed control statement was stored with this case."
+        )
+
     user_urls: list[str] = []
     for link in packet["links"][:MAX_USER_LINKS]:
         if _is_http_url(link) and link not in user_urls:
@@ -652,24 +798,33 @@ def _store_verdict(slot: Verdict, written: str, decided: dict) -> None:
 
 
 VERDICT_TASK = (
-    "Write the complete official Sybil Court verdict from the policy and FETCHED_EVIDENCE only. "
+    "Write the complete official Sybil Court verdict from the policy, CONTROL_STATEMENT, "
+    "and FETCHED_EVIDENCE only. "
     "Use this structure: (1) caption with case id, round, target wallet, policy title; "
-    "(2) Evidence inventory — one subsection per URL listing fetch status and 2–6 concrete "
+    "(2) Control statement — if present, state that wallet control was bound by the stored "
+    "signature, name the signer, say whether the signer string equals the target wallet, "
+    "and quote the honest limit (key control only, not identity). If absent, say no signed "
+    "control statement was stored; "
+    "(3) Evidence inventory — one subsection per URL listing fetch status and 2–6 concrete "
     "facts that actually appear in that source; "
-    "(3) Policy application — map those cited facts to specific policy clauses; "
-    "(4) Gaps — what the policy requires that the sources do not show; "
-    "(5) Conclusion. "
+    "(4) Policy application — map those cited facts to specific policy clauses; "
+    "(5) Gaps — what the policy requires that the sources do not show; "
+    "(6) Conclusion. "
     "Cite every URL that was attempted. Quote or closely paraphrase only fetched text. "
     "If a source has substantial relevant content, discuss that content specifically. "
     "If a source is FETCH_FAILED or FETCH_THIN, say so and do not fill the gap. "
+    "A stored signature is not uniqueness proof and is not identity. "
     "Never invent transactions, balances, counterparties, clusters, ENS names, or pages."
 )
 
 VERDICT_CRITERIA = """
-The verdict must be grounded only in the supplied policy text and FETCHED_EVIDENCE.
+The verdict must be grounded only in the supplied policy text, CONTROL_STATEMENT, and FETCHED_EVIDENCE.
+If CONTROL_STATEMENT is present, the verdict must include a control-statement subsection that names the stored signer, states that wallet control was bound by that stored signature, and states that a signature proves key control only — not legal identity, uniqueness, or on-chain history.
+If CONTROL_STATEMENT is absent, the verdict must say no signed control statement was stored.
 Every attempted URL in EVIDENCE_URLS must be mentioned with its fetch result.
-Facts, quotes, names, and numbers must come from fetched source text.
+Facts, quotes, names, and numbers must come from fetched source text or the stored control statement bytes.
 Do not invent explorer results, balances, transfers, clusters, or identity claims.
+Do not treat a signature as Eligible proof or as a unique human.
 FETCH_FAILED and FETCH_THIN sources must be labeled as failed or thin.
 If any source has real usable content, the verdict must discuss that content specifically rather than treating all evidence as empty.
 It must be a full written judgment, not a one-line label.
@@ -699,6 +854,7 @@ def _decide_outcome(packet: dict, written_verdict: str) -> dict:
             "Ineligible only if fetched sources themselves clearly show sybil / farming / cluster behavior under the policy. "
             "Contested when any required proof is missing, FETCH_FAILED, FETCH_THIN, off-topic, or contradictory. "
             "Do not upgrade a biographical page, homepage, or explorer interstitial into on-chain proof. "
+            "A stored control signature proves claimed key control only. It is never sufficient for Eligible and is not identity. "
             "Do not guess. If supporting source text is not present, outcome is Contested. "
             "summary is one short sentence that cites the strongest fetched fact or the specific gap.\n\n"
             + sources
@@ -738,9 +894,15 @@ class SybilCourt(gl.Contract):
     case_ids: DynArray[str]
     case_count: u256
     last_case_id: str
+    treasury_atto: u256
+    credits: TreeMap[str, u256]
+    eligible_wallets: TreeMap[str, str]
+    eligible_count: u256
 
     def __init__(self):
         self.owner = gl.message.sender_address
+        self.treasury_atto = u256(0)
+        self.eligible_count = u256(0)
 
     def _next_policy_id(self) -> str:
         nxt = int(self.policy_count) + 1
@@ -757,6 +919,94 @@ class SybilCourt(gl.Contract):
     def _require_case(self, case_id: str) -> None:
         if case_id not in self.cases:
             raise gl.vm.UserError("[EXPECTED] Unknown case: " + case_id)
+
+    def _credit_of(self, addr_key: str) -> u256:
+        if addr_key in self.credits:
+            return self.credits[addr_key]
+        return u256(0)
+
+    def _add_credit(self, addr: Address, amount: u256) -> None:
+        if amount == u256(0):
+            return
+        key = str(addr)
+        self.credits[key] = self._credit_of(key) + amount
+
+    def _register_eligible(self, wallet: str, case_id: str) -> None:
+        key = _wallet_key(wallet)
+        if key == "":
+            return
+        if key not in self.eligible_wallets:
+            self.eligible_count = self.eligible_count + u256(1)
+        self.eligible_wallets[key] = case_id
+
+    def _clear_eligible(self, wallet: str) -> None:
+        key = _wallet_key(wallet)
+        if key in self.eligible_wallets:
+            del self.eligible_wallets[key]
+            if self.eligible_count > u256(0):
+                self.eligible_count = self.eligible_count - u256(1)
+
+    def _return_bond(self, addr: Address, amount: u256) -> None:
+        self._add_credit(addr, amount)
+
+    def _slash_to_treasury(self, amount: u256) -> None:
+        self.treasury_atto = self.treasury_atto + amount
+
+    def _settle_first(self, case_id: str) -> None:
+        case = self.cases[case_id]
+        outcome = case.verdict.outcome
+        bond = case.bond_atto
+        if outcome == "Eligible":
+            self._return_bond(case.submitter, bond)
+            self._register_eligible(case.wallet, case_id)
+            case.bond_status = "returned"
+            return
+        if outcome == "Ineligible":
+            self._slash_to_treasury(bond)
+            self._clear_eligible(case.wallet)
+            case.bond_status = "slashed"
+            return
+        now = _now_dt()
+        case.bond_status = "locked"
+        case.appeal_opens_at = _iso(now)
+        case.appeal_deadline = _iso(_add_seconds(now, APPEAL_WINDOW_SECONDS))
+
+    def _settle_appeal(self, case_id: str) -> None:
+        case = self.cases[case_id]
+        outcome = case.appeal.verdict.outcome
+        submit_bond = case.bond_atto
+        appeal_bond = case.appeal.bond_atto
+        filer = case.appeal.filer
+        if outcome == "Eligible":
+            self._return_bond(case.submitter, submit_bond)
+            self._return_bond(filer, appeal_bond)
+            self._register_eligible(case.wallet, case_id)
+            case.bond_status = "returned"
+            return
+        if outcome == "Ineligible":
+            self._slash_to_treasury(submit_bond)
+            self._return_bond(filer, appeal_bond)
+            self._clear_eligible(case.wallet)
+            case.bond_status = "slashed"
+            return
+        self._return_bond(case.submitter, submit_bond)
+        self._return_bond(filer, appeal_bond)
+        case.bond_status = "returned"
+
+    def _appeal_window_open(self, case: Case) -> bool:
+        if case.verdict.outcome != "Contested":
+            return False
+        if case.appeal.filed:
+            return False
+        deadline = _parse_iso_datetime(case.appeal_deadline)
+        if deadline is None:
+            return False
+        now = _now_dt()
+        if deadline.tzinfo is None and now.tzinfo is not None:
+            import datetime
+
+            deadline = deadline.replace(tzinfo=datetime.timezone.utc)
+        return now <= deadline
 
     @gl.public.write
     def publish_policy(self, title: str, body: str, project: str, source: str) -> None:
@@ -775,35 +1025,56 @@ class SybilCourt(gl.Contract):
         self.policy_count = self.policy_count + u256(1)
         self.last_policy_id = policy_id
 
-    @gl.public.write
+    @gl.public.write.payable
     def submit_case(
         self,
         wallet: str,
         policy_id: str,
         evidence_blob: str,
         bond_atto: u256,
+        control_message: str,
+        control_signature: str,
+        control_signer: str,
     ) -> None:
         wallet_text = _as_text(wallet).strip()
         if wallet_text == "":
             raise gl.vm.UserError("[EXPECTED] Target wallet is required")
         self._require_policy(policy_id)
+        paid = gl.message.value
+        if paid < MIN_SUBMIT_BOND:
+            raise gl.vm.UserError(
+                "[EXPECTED] Submit bond must be at least 0.01 GEN (sent as msg.value)"
+            )
+        if paid < bond_atto:
+            raise gl.vm.UserError(
+                "[EXPECTED] msg.value is below the declared bond_atto"
+            )
+        message, signature, signer = _normalize_control(
+            control_message, control_signature, control_signer
+        )
         case_id = self._next_case_id()
         self.cases[case_id] = Case(
             id=case_id,
             submitter=gl.message.sender_address,
             wallet=wallet_text,
             policy_id=policy_id,
-            bond_atto=bond_atto,
+            bond_atto=paid,
             status="submitted",
             evidence_blob=evidence_blob,
             verdict=_empty_verdict(),
             appeal=_empty_appeal(),
+            bond_status="locked",
+            appeal_opens_at="",
+            appeal_deadline="",
+            control_message=message,
+            control_signature=signature,
+            control_signer=signer,
         )
         self.case_ids.append(case_id)
         self.case_count = self.case_count + u256(1)
         self.last_case_id = case_id
 
-    @gl.public.write
+    @gl.public.write.payable
     def file_appeal(self, case_id: str, reason: str, bond_atto: u256) -> None:
         self._require_case(case_id)
         if reason.strip() == "":
@@ -813,10 +1084,24 @@ class SybilCourt(gl.Contract):
             raise gl.vm.UserError("[EXPECTED] Appeal already filed")
         if case.status != "judged":
             raise gl.vm.UserError("[EXPECTED] Appeal requires a first verdict")
+        if case.verdict.outcome != "Contested":
+            raise gl.vm.UserError("[EXPECTED] Appeal is only open after Contested")
+        if not self._appeal_window_open(case):
+            raise gl.vm.UserError("[EXPECTED] Appeal window is closed")
+        paid = gl.message.value
+        required = case.bond_atto * APPEAL_BOND_MULT
+        if paid < required:
+            raise gl.vm.UserError(
+                "[EXPECTED] Appeal bond must be at least 2x the submit bond"
+            )
+        if paid < bond_atto:
+            raise gl.vm.UserError(
+                "[EXPECTED] msg.value is below the declared appeal bond_atto"
+            )
         case.appeal.filed = True
         case.appeal.filer = gl.message.sender_address
         case.appeal.reason = reason
-        case.appeal.bond_atto = bond_atto
+        case.appeal.bond_atto = paid
         case.status = "appealed"
 
     def _judgment_packet(self, case_id: str, round_name: str) -> dict:
@@ -825,6 +1110,7 @@ class SybilCourt(gl.Contract):
         self._require_policy(case.policy_id)
         policy = self.policies[case.policy_id]
         links = _parse_evidence_links(case.evidence_blob)
+        control = _control_dict(case)
         return {
             "case_id": case.id,
             "round": round_name,
@@ -835,6 +1121,13 @@ class SybilCourt(gl.Contract):
             "prior_outcome": case.verdict.outcome,
             "prior_verdict": case.verdict.text,
             "appeal_reason": case.appeal.reason,
+            "control_present": control["present"],
+            "control_message": control["message"],
+            "control_signature": control["signature"],
+            "control_signer": control["signer"],
+            "control_signer_matches_target": control["signer_matches_target"],
+            "control_message_names_wallet": control["message_names_wallet"],
+            "control_message_names_policy": control["message_names_policy"],
         }
 
     @gl.public.write
@@ -850,6 +1143,7 @@ class SybilCourt(gl.Contract):
         decided = _decide_outcome(packet, written)
         _store_verdict(self.cases[case_id].verdict, written, decided)
         self.cases[case_id].status = "judged"
+        self._settle_first(case_id)
 
     @gl.public.write
     def judge_appeal(self, case_id: str) -> None:
@@ -866,6 +1160,32 @@ class SybilCourt(gl.Contract):
         decided = _decide_outcome(packet, written)
         _store_verdict(self.cases[case_id].appeal.verdict, written, decided)
         self.cases[case_id].status = "appeal_judged"
+        self._settle_appeal(case_id)
+
+    @gl.public.write
+    def finalize_expired_appeal(self, case_id: str) -> None:
+        self._require_case(case_id)
+        case = self.cases[case_id]
+        if case.status != "judged" or case.verdict.outcome != "Contested":
+            raise gl.vm.UserError("[EXPECTED] No expired Contested appeal to finalize")
+        if case.appeal.filed:
+            raise gl.vm.UserError("[EXPECTED] Appeal already filed")
+        if self._appeal_window_open(case):
+            raise gl.vm.UserError("[EXPECTED] Appeal window is still open")
+        if case.bond_status != "locked":
+            raise gl.vm.UserError("[EXPECTED] Submit bond is not locked")
+        self._return_bond(case.submitter, case.bond_atto)
+        case.bond_status = "returned"
+        case.status = "expired_unappealed"
+
+    @gl.public.write
+    def withdraw(self) -> None:
+        key = str(gl.message.sender_address)
+        amount = self._credit_of(key)
+        if amount == u256(0):
+            raise gl.vm.UserError("[EXPECTED] No withdrawable credit")
+        self.credits[key] = u256(0)
+        _NativeRecipient(gl.message.sender_address).emit_transfer(value=amount)
 
     @gl.public.view
     def get_policy(self, policy_id: str) -> dict:
@@ -895,11 +1215,65 @@ class SybilCourt(gl.Contract):
             "wallet": case.wallet,
             "policy_id": case.policy_id,
             "bond_atto": str(case.bond_atto),
+            "bond_status": case.bond_status,
+            "appeal_opens_at": case.appeal_opens_at,
+            "appeal_deadline": case.appeal_deadline,
             "status": case.status,
             "evidence_blob": case.evidence_blob,
             "evidence_links": links,
+            "control_statement": _control_dict(case),
             "verdict": _verdict_dict(case.verdict),
             "appeal": _appeal_dict(case.appeal),
+        }
+
+    @gl.public.view
+    def is_eligible(self, wallet: str) -> dict:
+        key = _wallet_key(wallet)
+        if key in self.eligible_wallets:
+            return {
+                "eligible": True,
+                "wallet": wallet,
+                "case_id": self.eligible_wallets[key],
+            }
+        return {"eligible": False, "wallet": wallet, "case_id": ""}
+
+    @gl.public.view
+    def get_bond_status(self, case_id: str) -> dict:
+        if case_id not in self.cases:
+            return {"found": False, "id": case_id}
+        case = self.cases[case_id]
+        return {
+            "found": True,
+            "id": case.id,
+            "status": case.status,
+            "outcome": case.verdict.outcome,
+            "appeal_outcome": case.appeal.verdict.outcome,
+            "submitter": str(case.submitter),
+            "submit_bond_atto": str(case.bond_atto),
+            "appeal_bond_atto": str(case.appeal.bond_atto),
+            "bond_status": case.bond_status,
+            "appeal_filed": bool(case.appeal.filed),
+            "appeal_window_open": self._appeal_window_open(case),
+            "appeal_opens_at": case.appeal_opens_at,
+            "appeal_deadline": case.appeal_deadline,
+        }
+
+    @gl.public.view
+    def get_treasury(self) -> dict:
+        return {"treasury_atto": str(self.treasury_atto)}
+
+    @gl.public.view
+    def get_credit(self, account: str) -> dict:
+        return {"account": account, "credit_atto": str(self._credit_of(account))}
+
+    @gl.public.view
+    def get_economics(self) -> dict:
+        return {
+            "min_submit_bond_atto": str(MIN_SUBMIT_BOND),
+            "appeal_bond_multiplier": str(APPEAL_BOND_MULT),
+            "appeal_window_seconds": str(APPEAL_WINDOW_SECONDS),
+            "treasury_atto": str(self.treasury_atto),
+            "eligible_count": str(self.eligible_count),
         }
 
     @gl.public.view

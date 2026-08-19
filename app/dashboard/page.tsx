@@ -159,7 +159,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <div className="font-label-technical text-[10px] text-on-surface-variant">
-                        At Risk
+                        {item.stakeLabel || "Bond"}
                       </div>
                       <div className="font-label-technical text-error">{item.stake}</div>
                     </div>
@@ -187,7 +187,7 @@ export default function DashboardPage() {
           <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
               <tr className="border-b border-outline-variant bg-surface-container-lowest">
-                {["ID", "Wallet", "Outcome", "Bond"].map((label) => (
+                {["ID", "Wallet", "Outcome", "Bond status"].map((label) => (
                   <th
                     key={label}
                     className="p-4 font-label-technical text-[10px] text-on-surface-variant uppercase"
@@ -228,8 +228,8 @@ export default function DashboardPage() {
                         {row.outcome ?? row.status}
                       </span>
                     </td>
-                    <td className="p-4 font-label-technical text-[12px] text-on-surface-variant">
-                      {row.stake}
+                    <td className="p-4 font-label-technical text-[12px] text-on-surface-variant uppercase">
+                      {row.bondStatus || row.stakeLabel || row.stake}
                     </td>
                   </tr>
                 ))

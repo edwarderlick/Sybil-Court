@@ -8,6 +8,7 @@ import { AppShell } from "@/components/shell/AppShell";
 import { Countdown, CountdownBar } from "@/components/ui/Countdown";
 import { Icon } from "@/components/ui/Icon";
 import { type CaseRecord, type CaseStatusTone } from "@/lib/court";
+import { SYBIL_COURT_ADDRESS } from "@/lib/genlayer";
 import { routes } from "@/lib/routes";
 
 type Filter = "all" | "open" | "resolved" | "appeal";
@@ -37,6 +38,11 @@ function CaseCard({ item }: { item: CaseRecord }) {
             <h3 className="font-headline-lg-mobile text-headline-lg-mobile font-semibold line-through text-on-surface-variant">
               {item.wallet}
             </h3>
+            {item.registryEligible ? (
+              <p className="mt-2 font-label-technical text-[10px] uppercase text-tertiary">
+                Eligible registry
+              </p>
+            ) : null}
           </div>
           <div className="text-right">
             <div className="font-label-technical text-[10px] text-on-surface-variant mb-1">
@@ -222,9 +228,12 @@ function BrowseCasesInner() {
             Case Log
           </h1>
           <p className="text-on-surface-variant font-label-technical text-label-technical max-w-2xl leading-relaxed">
-            Live feed of active disputes, sybil detection appeals, and resolved
-            protocol cases. Monitor validator consensus and real-time state
-            changes across all integrated networks.
+            Live docket from the bonded Sybil Court contract. Bond labels are
+            locked, returned as credit, or slashed to treasury — not projected
+            slash promises.
+          </p>
+          <p className="mt-3 font-label-technical text-[11px] text-on-surface-variant break-all uppercase">
+            Contract {SYBIL_COURT_ADDRESS}
           </p>
         </div>
         <div className="flex gap-4 items-center bg-surface-container p-2 border border-outline-variant">

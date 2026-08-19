@@ -6,6 +6,10 @@ import {
 } from "genlayer-js/types";
 import type { Account, Address } from "viem";
 import {
+  type ControlStatementView,
+  parseControlStatement,
+} from "./controlStatement";
+import {
   SYBIL_COURT_ADDRESS,
   getInjectedProvider,
   getReadClient,
@@ -44,11 +48,29 @@ export type ContractCase = {
   wallet: string;
   policy_id: string;
   bond_atto: string;
+  bond_status: string;
+  appeal_opens_at: string;
+  appeal_deadline: string;
   status: string;
   evidence_blob: string;
   evidence_links: string[];
+  control_statement: ControlStatementView;
   verdict: ContractVerdict;
   appeal: ContractAppeal;
+};
+
+export type EligibleLookup = {
+  eligible: boolean;
+  wallet: string;
+  case_id: string;
+};
+
+export type CourtEconomics = {
+  min_submit_bond_atto: string;
+  appeal_bond_multiplier: string;
+  appeal_window_seconds: string;
+  treasury_atto: string;
+  eligible_count: string;
 };
 
 export type IdList = {
@@ -156,9 +178,13 @@ function parseCase(value: unknown): ContractCase {
     wallet: asText(record.wallet),
     policy_id: asText(record.policy_id),
     bond_atto: asText(record.bond_atto),
+    bond_status: asText(record.bond_status),
+    appeal_opens_at: asText(record.appeal_opens_at),
+    appeal_deadline: asText(record.appeal_deadline),
     status: asText(record.status),
     evidence_blob: asText(record.evidence_blob),
     evidence_links: asStringList(record.evidence_links),
+    control_statement: parseControlStatement(record.control_statement),
     verdict: parseVerdict(record.verdict),
     appeal: parseAppeal(record.appeal),
   };
@@ -208,6 +234,7 @@ async function sendWrite(
   functionName: string,
   args: unknown[],
   wait: typeof WRITE_WAIT | typeof JUDGE_WAIT,
+  value = BigInt(0),
 ): Promise<WriteResult> {
   const provider = getInjectedProvider();
   const client = getWriteClient(account, provider);
@@ -218,7 +245,7 @@ async function sendWrite(
     address: SYBIL_COURT_ADDRESS,
     functionName,
     args: args as never,
-    value: BigInt(0),
+    value,
   })) as Hash;
 
   let receipt: GenLayerTransaction;
@@ -270,12 +297,23 @@ export async function getVerdict(caseId: string) {
 }
 
 export async function loadCourtSnapshot() {
-  const [policies, cases] = await Promise.all([listPolicyIds(), listCaseIds()]);
+  const [policies, cases, economics] = await Promise.all([
+    listPolicyIds(),
+    listCaseIds(),
+    getEconomics().catch(() => null),
+  ]);
   const policyRows = await Promise.all(policies.ids.map((id) => getPolicy(id)));
   const caseRows = await Promise.all(cases.ids.map((id) => getCase(id)));
+  const foundCases = caseRows.filter((item) => item.found);
+  const wallets = [...new Set(foundCases.map((item) => item.wallet).filter(Boolean))];
+  const eligibility = await Promise.all(
+    wallets.map((wallet) => isEligible(wallet).catch(() => ({ eligible: false, wallet, case_id: "" }))),
+  );
   return {
     policies: policyRows.filter((item) => item.found),
-    cases: caseRows.filter((item) => item.found),
+    cases: foundCases,
+    eligibility,
+    economics,
     lastPolicyId: policies.last_id || null,
     lastCaseId: cases.last_id || null,
   };
@@ -297,12 +335,24 @@ export function submitCase(
   policyId: string,
   evidenceBlob: string,
   bondAtto: bigint,
+  controlMessage = "",
+  controlSignature = "",
+  controlSigner = "",
 ) {
   return sendWrite(
     account,
     "submit_case",
-    [wallet, policyId, evidenceBlob, bondAtto],
+    [
+      wallet,
+      policyId,
+      evidenceBlob,
+      bondAtto,
+      controlMessage,
+      controlSignature,
+      controlSigner,
+    ],
     WRITE_WAIT,
+    bondAtto,
   );
 }
 
@@ -312,7 +362,33 @@ export function fileAppeal(
   reason: string,
   bondAtto: bigint,
 ) {
-  return sendWrite(account, "file_appeal", [caseId, reason, bondAtto], WRITE_WAIT);
+  return sendWrite(
+    account,
+    "file_appeal",
+    [caseId, reason, bondAtto],
+    WRITE_WAIT,
+    bondAtto,
+  );
+}
+
+export async function isEligible(wallet: string): Promise<EligibleLookup> {
+  const record = asRecord(await readMethod("is_eligible", [wallet]));
+  return {
+    eligible: asBool(record.eligible),
+    wallet: asText(record.wallet) || wallet,
+    case_id: asText(record.case_id),
+  };
+}
+
+export async function getEconomics(): Promise<CourtEconomics> {
+  const record = asRecord(await readMethod("get_economics"));
+  return {
+    min_submit_bond_atto: asText(record.min_submit_bond_atto),
+    appeal_bond_multiplier: asText(record.appeal_bond_multiplier) || "2",
+    appeal_window_seconds: asText(record.appeal_window_seconds),
+    treasury_atto: asText(record.treasury_atto),
+    eligible_count: asText(record.eligible_count),
+  };
 }
 
 export function judgeCase(account: Address | Account, caseId: string) {

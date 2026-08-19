@@ -6,6 +6,8 @@ import { useCourt } from "@/components/providers/CourtProvider";
 import { AppShell } from "@/components/shell/AppShell";
 import { Icon } from "@/components/ui/Icon";
 import { LiveBadge } from "@/components/ui/LiveBadge";
+import { formatDeadline } from "@/lib/court";
+import { SYBIL_COURT_ADDRESS } from "@/lib/genlayer";
 import { routes } from "@/lib/routes";
 import { buildVerdictView } from "@/lib/verdictView";
 
@@ -84,6 +86,9 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
               <h1 className="font-headline-xl text-[36px] md:text-headline-xl text-on-surface break-all">
                 {record.title}
               </h1>
+              <p className="mt-2 font-label-technical text-[11px] text-on-surface-variant break-all uppercase">
+                Contract {SYBIL_COURT_ADDRESS}
+              </p>
             </div>
             <div className={`flex items-center gap-2 px-3 py-1 border ${statusTone}`}>
               <Icon name="radio_button_checked" className="animate-pulse text-[18px]" />
@@ -142,13 +147,55 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
                   {record.stakeLabel}
                 </div>
               </div>
-              <div className="mt-8">
-                <div className="font-label-technical text-label-technical text-primary uppercase mb-2">
-                  Docket status
+              <div className="mt-8 space-y-3">
+                <div>
+                  <div className="font-label-technical text-label-technical text-primary uppercase mb-2">
+                    Docket status
+                  </div>
+                  <p className="font-label-technical text-label-technical text-on-surface">
+                    {record.meterLabel ?? record.status}
+                  </p>
                 </div>
-                <p className="font-label-technical text-label-technical text-on-surface">
-                  {record.meterLabel ?? record.status}
-                </p>
+                <div>
+                  <div className="font-label-technical text-label-technical text-outline uppercase mb-1">
+                    Bond status
+                  </div>
+                  <p className="font-label-technical text-label-technical text-on-surface uppercase">
+                    {record.bondStatus || "unknown"}
+                  </p>
+                  <p className="font-label-technical text-[11px] text-on-surface-variant mt-1">
+                    Returned bonds become contract credits. Studio may not pay
+                    them out as native GEN.
+                  </p>
+                </div>
+                <div>
+                  <div className="font-label-technical text-label-technical text-outline uppercase mb-1">
+                    Eligible registry
+                  </div>
+                  <p className="font-label-technical text-label-technical text-on-surface">
+                    {record.registryEligible
+                      ? "On-chain Eligible"
+                      : "Not listed"}
+                  </p>
+                </div>
+                {record.outcome === "Contested" && record.appealDeadline ? (
+                  <div>
+                    <div className="font-label-technical text-label-technical text-outline uppercase mb-1">
+                      Appeal window
+                    </div>
+                    <p className="font-label-technical text-label-technical text-on-surface">
+                      {record.appealWindowOpen
+                        ? `Open until ${formatDeadline(record.appealDeadline)}`
+                        : record.appeal
+                          ? "Appeal filed"
+                          : `Closed ${formatDeadline(record.appealDeadline)}`}
+                    </p>
+                    <p className="font-label-technical text-[11px] text-on-surface-variant mt-1">
+                      Appeal requires {record.minAppealBond ?? record.appealStake}{" "}
+                      (2× submit bond).
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </div>
           </section>
@@ -165,6 +212,34 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
                   </div>
                   <LiveBadge />
                 </div>
+                {record.controlStatement?.present ? (
+                  <div className="mt-4 mb-4 border border-tertiary/30 bg-surface-container p-4">
+                    <p className="font-label-technical text-[11px] uppercase text-tertiary mb-2">
+                      Signed control statement
+                    </p>
+                    <p className="font-label-technical text-label-technical text-on-surface break-all mb-2">
+                      Signer {record.controlStatement.signer}
+                      {record.controlStatement.signerMatchesTarget
+                        ? " · matches target"
+                        : " · does not match target"}
+                    </p>
+                    <pre className="font-body-md text-sm text-on-surface-variant whitespace-pre-wrap break-words mb-3">
+                      {record.controlStatement.message}
+                    </pre>
+                    <p className="font-label-technical text-[11px] text-on-surface-variant break-all">
+                      {record.controlStatement.signature}
+                    </p>
+                    <p className="mt-3 text-sm text-on-surface-variant">
+                      Stored as submitted. The contract does not recover the
+                      signer. This proves key control only if independently
+                      recovered — not identity.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-4 font-label-technical text-[11px] text-on-surface-variant uppercase">
+                    No signed control statement on this docket.
+                  </p>
+                )}
                 {record.evidence.length > 0 ? (
                   <div className="mt-4 space-y-2 overflow-y-auto">
                     {record.evidence.map((item, index) => (
@@ -342,14 +417,22 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
                   ? "Run Judgment"
                   : record.status === "Active Appeal"
                     ? "Judge Appeal"
-                    : "Initiate Appeal"}
+                    : record.appealWindowOpen
+                      ? "File Appeal"
+                      : "Settlement"}
               </h3>
               <p className="text-on-surface-variant font-label-technical text-label-technical uppercase mt-1">
                 {record.statusTone === "pending"
                   ? "Fetch public evidence and write the full verdict on-chain."
                   : record.status === "Active Appeal"
-                    ? "Re-evaluate the appealed docket with the same live helpers."
-                    : `Appeal bond on this docket: ${record.appealStake ?? record.stake}.`}
+                    ? "Re-evaluate the appealed docket, then settle both bonds."
+                    : record.appealWindowOpen
+                      ? `Contested only. Appeal bond is ${record.minAppealBond ?? record.appealStake} sent as payable GEN.`
+                      : record.bondStatus === "returned"
+                        ? "Bond credited on-contract. Native Studio payout may not work."
+                        : record.bondStatus === "slashed"
+                          ? "Bond moved to the contract treasury."
+                          : "No appeal window is open on this docket."}
               </p>
               {lastTxHash ? (
                 <p className="font-label-technical text-label-technical text-on-surface-variant break-all mt-2">
@@ -400,14 +483,14 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
               >
                 <Icon name="gavel" /> {pending ? pending : "Judge Appeal"}
               </button>
-            ) : (
+            ) : record.appealWindowOpen ? (
               <Link
                 href={routes.appeal(record.id)}
                 className="bg-error text-on-error font-label-technical text-label-technical px-8 py-4 uppercase hover:scale-95 duration-100 transition-all shadow-[0_0_20px_rgba(255,180,171,0.2)] flex items-center gap-3"
               >
-                <Icon name="gavel" /> Challenge Verdict
+                <Icon name="gavel" /> File Appeal
               </Link>
-            )}
+            ) : null}
           </section>
         </div>
       </main>

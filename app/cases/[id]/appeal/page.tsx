@@ -5,9 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useCourt } from "@/components/providers/CourtProvider";
 import { AppShell } from "@/components/shell/AppShell";
-import { Countdown } from "@/components/ui/Countdown";
 import { Icon } from "@/components/ui/Icon";
-import { appealContext } from "@/lib/content";
+import { formatDeadline } from "@/lib/court";
 import { routes } from "@/lib/routes";
 
 export default function AppealPage() {
@@ -60,10 +59,10 @@ export default function AppealPage() {
                   </span>
                 </div>
                 <h2 className="font-stat-value text-[24px] font-bold text-on-surface mb-1">
-                  {record ? `CASE-${record.docket}` : appealContext.caseId}
+                  {record ? record.docket : params.id}
                 </h2>
-                <p className="font-body-md text-on-surface-variant text-sm mb-4">
-                  {record?.title ?? appealContext.summary}
+                <p className="font-body-md text-on-surface-variant text-sm mb-4 break-all">
+                  {record?.title ?? "Load the docket to appeal."}
                 </p>
                 <div className="border-t border-outline-variant pt-3 flex flex-col gap-2">
                   <div className="flex justify-between">
@@ -71,23 +70,20 @@ export default function AppealPage() {
                       Prior Resolution:
                     </span>
                     <span className="font-label-technical text-label-technical text-error">
-                      {record?.status ?? appealContext.prior}
+                      {record?.outcome ?? record?.status ?? "Unknown"}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-label-technical text-label-technical text-on-surface-variant">
-                      Time Remaining:
+                      Appeal window:
                     </span>
-                    {record?.windowSeconds ? (
-                      <Countdown
-                        initialSeconds={record.windowSeconds}
-                        className="font-label-technical text-label-technical text-on-surface"
-                      />
-                    ) : (
-                      <span className="font-label-technical text-label-technical text-on-surface">
-                        {appealContext.remaining}
-                      </span>
-                    )}
+                    <span className="font-label-technical text-label-technical text-on-surface text-right">
+                      {record?.appealWindowOpen && record.appealDeadline
+                        ? `Open until ${formatDeadline(record.appealDeadline)}`
+                        : record?.appeal
+                          ? "Already filed"
+                          : "Closed or not Contested"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -99,14 +95,13 @@ export default function AppealPage() {
                   Required Stake
                 </span>
                 <div className="font-stat-value text-stat-value text-tertiary mb-1">
-                  {record?.appealStake?.split(" ")[0] ?? appealContext.stake}{" "}
-                  <span className="text-[20px] text-tertiary/70">
-                    {record?.appealStake?.split(" ")[1] ?? appealContext.stakeToken}
-                  </span>
+                  {record?.minAppealBond ?? record?.appealStake ?? "2× submit"}
                 </div>
                 <p className="font-label-technical text-label-technical text-on-surface-variant leading-relaxed">
-                  This bond will be locked during the appeal process. It is forfeit
-                  if the appeal is rejected by the higher court.
+                  Must be at least 2× the submit bond, sent as payable GEN.
+                  Contested refunds both bonds as credits. Ineligible slashes the
+                  submitter and refunds the appellant. Eligible refunds both and
+                  lists the wallet. Studio may not pay credits out natively.
                 </p>
               </div>
             </div>
@@ -140,8 +135,8 @@ export default function AppealPage() {
           </div>
           <div className="border-t border-outline-variant pt-gutter mt-grid_unit flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="font-label-technical text-label-technical text-on-surface-variant max-w-md">
-              By submitting, you agree to lock the required bond. The process is
-              irreversible once initiated on-chain.
+              Appeal is only available after a Contested first verdict and only
+              while the window is open. The 2× bond is sent with this transaction.
             </div>
             <button
               type="button"
@@ -155,11 +150,17 @@ export default function AppealPage() {
                   setError("Appeal reasoning is required.");
                   return;
                 }
+                if (!record.appealWindowOpen) {
+                  setError(
+                    "Appeal is only open after Contested, and only before the deadline.",
+                  );
+                  return;
+                }
                 void (async () => {
                   try {
                     await fileAppeal(record.id, {
                       reason: reason.trim(),
-                      stake: record.appealStake ?? record.stake,
+                      stake: record.minAppealBond ?? record.appealStake ?? record.stake,
                     });
                     router.push(routes.case(record.id));
                   } catch (caught) {

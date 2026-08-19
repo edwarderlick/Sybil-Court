@@ -2,18 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSignMessage } from "wagmi";
 import { useCourt } from "@/components/providers/CourtProvider";
 import { AppShell } from "@/components/shell/AppShell";
 import { Countdown } from "@/components/ui/Countdown";
 import { Icon } from "@/components/ui/Icon";
+import {
+  buildControlMessage,
+  emptyControlStatement,
+  signerMatchesTarget,
+} from "@/lib/controlStatement";
+import { MIN_SUBMIT_BOND_ATTO, parseBondAtto } from "@/lib/court";
 import { routes } from "@/lib/routes";
 
 const steps = [
   { id: 1, name: "Select Policy", code: "PHASE_01_POL" },
   { id: 2, name: "Coordinates", code: "PHASE_02_LOC" },
   { id: 3, name: "Telemetry", code: "PHASE_03_TEL" },
-  { id: 4, name: "Bond Lock", code: "PHASE_04_BND" },
-  { id: 5, name: "Validation", code: "PHASE_05_VAL" },
+  { id: 4, name: "Sign Control", code: "PHASE_04_SIG" },
+  { id: 5, name: "Bond Lock", code: "PHASE_05_BND" },
+  { id: 6, name: "Validation", code: "PHASE_06_VAL" },
 ];
 
 export default function SubmitWalletPage() {
@@ -28,6 +36,7 @@ export default function SubmitWalletPage() {
     lastError,
     loading,
   } = useCourt();
+  const { signMessageAsync, isPending: signing } = useSignMessage();
   const [current, setCurrent] = useState(1);
   const [policy, setPolicy] = useState(
     lastPolicyId ?? policies[0]?.id ?? "",
@@ -35,7 +44,8 @@ export default function SubmitWalletPage() {
   const [wallet, setWallet] = useState(address ?? "");
   const [evidence, setEvidence] = useState("");
   const [artifacts, setArtifacts] = useState<string[]>([]);
-  const [stakeAmount, setStakeAmount] = useState("5.00");
+  const [control, setControl] = useState(emptyControlStatement);
+  const [stakeAmount, setStakeAmount] = useState("0.01");
   const [error, setError] = useState("");
   const [submittedId, setSubmittedId] = useState<string | null>(null);
 
@@ -49,12 +59,35 @@ export default function SubmitWalletPage() {
     }
   }, [lastPolicyId, policies, policy]);
 
+  useEffect(() => {
+    setControl((currentStatement) => {
+      if (!currentStatement.signature) return currentStatement;
+      if (
+        currentStatement.message.includes(wallet.trim()) &&
+        currentStatement.message.includes(policy)
+      ) {
+        return currentStatement;
+      }
+      return emptyControlStatement();
+    });
+  }, [wallet, policy]);
+
   const progress = (current / steps.length) * 100;
   const header = steps[current - 1].code;
   const selectedPolicy = policies.find((item) => item.id === policy);
   const visiblePolicies = useMemo(() => policies, [policies]);
 
-  const nextLabel = current === 5 ? "Execute Contract" : "Next Phase";
+  const nextLabel = current === 6 ? "Execute Contract" : "Next Phase";
+  const previewMessage =
+    address && policy && wallet.trim()
+      ? buildControlMessage({
+          policyId: policy,
+          targetWallet: wallet.trim(),
+          signer: address,
+        })
+      : "";
+  const signed = control.signature !== "";
+  const bindsTarget = signerMatchesTarget(control.signer, wallet);
 
   const addArtifact = (value: string) => {
     const next = value.trim();
@@ -75,11 +108,14 @@ export default function SubmitWalletPage() {
       setError("A target wallet address is required.");
       return;
     }
-    if (current === 4 && !stakeAmount.trim()) {
-      setError("Enter the bond amount to lock.");
-      return;
+    if (current === 5) {
+      const atto = parseBondAtto(stakeAmount);
+      if (atto < MIN_SUBMIT_BOND_ATTO) {
+        setError("Submit bond must be at least 0.01 GEN, sent with the transaction.");
+        return;
+      }
     }
-    if (current < 5) {
+    if (current < 6) {
       setCurrent((value) => value + 1);
       return;
     }
@@ -91,6 +127,9 @@ export default function SubmitWalletPage() {
           evidence: artifacts,
           stakeAmount,
           stakeToken: "GEN",
+          controlMessage: control.message,
+          controlSignature: control.signature,
+          controlSigner: control.signer,
         });
         setSubmittedId(record.id);
         router.push(routes.case(record.id));
@@ -388,11 +427,103 @@ export default function SubmitWalletPage() {
               {current === 4 ? (
                 <>
                   <h3 className="font-headline-lg text-headline-lg mb-2">
+                    Sign Control Statement
+                  </h3>
+                  <p className="text-on-surface-variant mb-6">
+                    Optional. The connected wallet signs a plain message that
+                    names this target and policy. The court stores the message,
+                    signature, and signer. It does not recover the key on-chain
+                    and it does not prove identity.
+                  </p>
+                  <div className="bg-surface-container-high border border-outline-variant p-4 mb-6">
+                    <p className="font-label-technical text-label-technical text-on-surface-variant uppercase mb-3">
+                      Message to sign
+                    </p>
+                    <pre className="font-body-md text-sm text-on-surface whitespace-pre-wrap break-words">
+                      {previewMessage ||
+                        "Connect a wallet and set a target before signing."}
+                    </pre>
+                  </div>
+                  <div className="flex flex-wrap gap-3 mb-6">
+                    <button
+                      type="button"
+                      disabled={signing || !previewMessage}
+                      onClick={() => {
+                        if (!previewMessage || !address) {
+                          setError("Connect a wallet before signing.");
+                          return;
+                        }
+                        setError("");
+                        void (async () => {
+                          try {
+                            const signature = await signMessageAsync({
+                              message: previewMessage,
+                            });
+                            setControl({
+                              message: previewMessage,
+                              signature,
+                              signer: address,
+                            });
+                          } catch (caught) {
+                            setError(
+                              caught instanceof Error
+                                ? caught.message
+                                : String(caught),
+                            );
+                          }
+                        })();
+                      }}
+                      className="bg-primary text-on-primary font-label-technical text-label-technical uppercase px-6 py-3 hover:bg-primary/90 disabled:opacity-60"
+                    >
+                      {signing
+                        ? "Awaiting signature…"
+                        : signed
+                          ? "Re-sign statement"
+                          : "Sign control statement"}
+                    </button>
+                    {signed ? (
+                      <button
+                        type="button"
+                        onClick={() => setControl(emptyControlStatement())}
+                        className="border border-outline-variant font-label-technical text-label-technical uppercase px-6 py-3 hover:bg-surface-container-high"
+                      >
+                        Clear signature
+                      </button>
+                    ) : null}
+                  </div>
+                  {signed ? (
+                    <div className="border border-tertiary/40 bg-tertiary/10 p-4 space-y-2">
+                      <p className="font-label-technical text-label-technical text-tertiary uppercase">
+                        Signature collected
+                      </p>
+                      <p className="font-label-technical text-[11px] text-on-surface break-all">
+                        Signer {control.signer}
+                      </p>
+                      <p className="font-label-technical text-[11px] text-on-surface break-all">
+                        {control.signature}
+                      </p>
+                      <p className="text-sm text-on-surface-variant">
+                        {bindsTarget
+                          ? "Signer string matches the target wallet. This binds that key if the signature is independently recovered."
+                          : "Signer does not match the target wallet. This binds the connected key, not the target."}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-on-surface-variant">
+                      You can skip this step. Unsigned filings still work. A
+                      signature is not eligibility.
+                    </p>
+                  )}
+                </>
+              ) : null}
+              {current === 5 ? (
+                <>
+                  <h3 className="font-headline-lg text-headline-lg mb-2">
                     Bond Requirement
                   </h3>
                   <p className="text-on-surface-variant mb-8">
-                    Secure your appeal by locking the required operational bond.
-                    This prevents network spam.
+                    Send at least 0.01 GEN with the submit transaction. The
+                    contract locks that amount until judgment.
                   </p>
                   <div className="bg-surface-container-high border border-outline-variant p-6 mb-8 relative overflow-hidden">
                     <div
@@ -421,8 +552,10 @@ export default function SubmitWalletPage() {
                         </span>
                       </div>
                       <p className="text-sm text-on-surface-variant max-w-md">
-                        Recorded on the case as a GEN bond. Studio is gasless, so
-                        this is a stored amount, not an Ethereum lock.
+                        Eligible returns this as an on-contract credit. Ineligible
+                        slashes it to the treasury. Contested keeps it locked for
+                        a 7-day appeal window. Studio may not pay credits out as
+                        native GEN.
                       </p>
                     </div>
                   </div>
@@ -438,7 +571,7 @@ export default function SubmitWalletPage() {
                   </div>
                 </>
               ) : null}
-              {current === 5 ? (
+              {current === 6 ? (
                 <>
                   <h3 className="font-headline-lg text-headline-lg mb-2">
                     Final Validation
@@ -465,6 +598,18 @@ export default function SubmitWalletPage() {
                         {artifacts.length === 0
                           ? "None attached"
                           : `${artifacts.length} attached`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-b border-outline-variant py-2 gap-4">
+                      <span className="text-on-surface-variant">
+                        Control statement:
+                      </span>
+                      <span className="text-on-surface text-right break-all">
+                        {signed
+                          ? bindsTarget
+                            ? `Signed by target ${control.signer}`
+                            : `Signed by ${control.signer} (not the target)`
+                          : "Not signed"}
                       </span>
                     </div>
                     <div className="flex justify-between border-b border-outline-variant py-2 gap-4">
@@ -545,14 +690,14 @@ export default function SubmitWalletPage() {
                 disabled={Boolean(pending)}
                 onClick={goNext}
                 className={`font-label-technical text-label-technical uppercase px-6 py-2 tech-border flex items-center gap-2 disabled:opacity-60 ${
-                  current === 5
+                  current === 6
                     ? "bg-primary text-on-primary-fixed glow-primary"
                     : "bg-surface-variant text-on-surface hover:bg-surface-bright"
                 }`}
               >
-                {pending && current === 5 ? pending : nextLabel}
+                {pending && current === 6 ? pending : nextLabel}
                 <Icon
-                  name={current === 5 ? "gavel" : "chevron_right"}
+                  name={current === 6 ? "gavel" : "chevron_right"}
                   className="text-[16px]"
                 />
               </button>

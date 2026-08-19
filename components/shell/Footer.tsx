@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SYBIL_COURT_ADDRESS } from "@/lib/genlayer";
 
 const links = [
   { href: "/how-judgments-work", label: "Legal Registry" },
@@ -27,6 +28,9 @@ export function Footer({ inset = false }: { inset?: boolean }) {
             {link.label}
           </Link>
         ))}
+      </div>
+      <div className="font-label-technical text-label-technical text-on-surface-variant/50 text-center uppercase">
+        Contract {SYBIL_COURT_ADDRESS}
       </div>
       <div className="font-label-technical text-label-technical text-on-surface-variant/50 text-center uppercase">
         ©2024 Sybil Court Industrial Intelligence. All rights reserved.

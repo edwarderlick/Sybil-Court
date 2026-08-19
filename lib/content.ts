@@ -242,7 +242,7 @@ export const activity = [
     icon: "gavel",
     label: "Verdict Reached",
     title: "Wallet 0x7A...3F92 flagged as malicious actor",
-    body: "Consensus achieved across 12 validator nodes. Passport revoked and associated staked assets slashed by 50%.",
+    body: "On-chain verdict stored. Ineligible slashes the locked bond to the treasury; Eligible returns a contract credit.",
     href: "/cases/8842-ax",
   },
   {
@@ -278,14 +278,14 @@ export const judgmentSteps = [
   {
     seq: "SEQ_02",
     title: "Wallet Submission",
-    body: "The claimant initiates the process by submitting their wallet address alongside structured evidence, triggering the immutable evaluation sequence.",
+    body: "The claimant submits a wallet plus public HTTPS links. They may optionally sign a control statement that names the target and policy. The court stores that signature; it proves key control only, not identity.",
     tone: "secondary",
     align: "left" as const,
   },
   {
     seq: "SEQ_03",
     title: "Data Retrieval",
-    body: "The intelligent contract autonomously pulls live public data, cross-referencing on-chain graphs with off-chain telemetry to build a comprehensive state snapshot.",
+    body: "The contract fetches the submitted HTTPS pages and up to three public explorers for the chain named in the policy. Failed or thin pages stay labeled. Nothing is invented.",
     tone: "tertiary",
     align: "right" as const,
   },
@@ -306,7 +306,7 @@ export const judgmentSteps = [
   {
     seq: "SEQ_06",
     title: "Appeal",
-    body: "If disputed, either side can appeal the verdict by locking a capital stake. This escalates the judgment to a higher quorum for final, binding resolution.",
+    body: "A Contested first verdict opens a 7-day appeal window. The appellant sends at least twice the submit bond as payable GEN. Eligible refunds both as credits and lists the wallet; Ineligible slashes the submitter and refunds the appellant; Contested refunds both. Studio may not pay credits out natively.",
     tone: "tertiary-container",
     align: "left" as const,
   },
